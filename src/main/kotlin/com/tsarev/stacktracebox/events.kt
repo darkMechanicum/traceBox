@@ -24,7 +24,6 @@ data class TraceTraceBoxEvent(
     val time: Long,
     val other: Map<String, String>,
 ) : TraceBoxEvent() {
-    @get:Transient
     val text by lazy { "$firstLine\n${otherLines.joinToString(separator = "\n") { it }}" }
 }
 

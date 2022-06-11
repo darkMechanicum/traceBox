@@ -1,6 +1,7 @@
 package com.tsarev.stacktracebox
 
 import com.intellij.openapi.components.service
+import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -14,25 +15,27 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 
 
-class CollectLogsToolWindowFactory : ToolWindowFactory {
+class CollectLogsToolWindowFactory : ToolWindowFactory, DumbAware {
+
+    private val myTree = Tree()
+
+    private var myStructureTreeModel: StructureTreeModel<CollectTracesTreeStructure>? = null
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         toolWindow.contentManager.addContent(project.createContent())
     }
 
-    private val myTree = Tree()
-
     @OptIn(DelicateCoroutinesApi::class)
     private fun Project.createContent(): Content {
         val myTreeStructure = CollectTracesTreeStructure(this)
         myTree.isRootVisible = true
-        val structureTreeModel = StructureTreeModel(myTreeStructure, this)
-        myTree.model = AsyncTreeModel(structureTreeModel, this)
+        myStructureTreeModel = StructureTreeModel(myTreeStructure, this)
+        myTree.model = AsyncTreeModel(myStructureTreeModel!!, this)
 
         val listenerRegistrar = service<ProcessListenersRegistrar>()
         val stateHolder = service<TraceBoxStateHolder>()
         val job = GlobalScope.launch {
-            doListenForUpdates(myTreeStructure, structureTreeModel, listenerRegistrar, stateHolder)
+            doListenForUpdates(myTreeStructure, myStructureTreeModel!!, listenerRegistrar, stateHolder)
         }
         val content = ContentImpl(
             myTree, "Traces", true

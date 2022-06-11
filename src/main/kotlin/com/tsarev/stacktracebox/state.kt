@@ -12,18 +12,39 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @Service
 @State(name = "com.tsarev.tracebox.traces")
 class TraceBoxStateHolder(
-    val project: Project
+    private val project: Project
 ) : PersistentStateComponent<TraceBoxStateHolder.State>, Disposable {
 
     val traceEventsQueue = ConcurrentLinkedQueue<TraceTraceBoxEvent>()
 
-    val collectorsScope = CoroutineScope(Job())
+    private val collectorsScope = CoroutineScope(Job())
 
-    override fun getState() = State(traceEventsQueue.toList())
+    // TODO Rework state persisting - there should be way not to
+    // TODO duplicate [TraceTraceBoxEvent] class.
+    override fun getState() = State().apply {
+        val traces = traceEventsQueue.map {
+            TraceTraceBoxEventStateAdapter().apply {
+                firstLine = it.firstLine
+                otherLines = it.otherLines
+                type = it.type
+                time = it.time
+                other = it.other
+            }
+        }
+        storedExceptions = traces
+    }
 
     override fun loadState(state: State): Unit = with(traceEventsQueue) {
         clear()
-        addAll(state.storedExceptions)
+        state.storedExceptions?.forEach {
+            add(TraceTraceBoxEvent(
+                firstLine = it.firstLine!!,
+                otherLines = it.otherLines ?: emptyList(),
+                type = it.type!!,
+                time = it.time!!,
+                other = it.other ?: emptyMap(),
+            ))
+        }
     }
 
     override fun initializeComponent() {
@@ -49,9 +70,17 @@ class TraceBoxStateHolder(
         }
     }
 
-    data class State(
-        val storedExceptions: List<TraceTraceBoxEvent>
-    )
+    class State {
+        var storedExceptions: List<TraceTraceBoxEventStateAdapter>? = null
+    }
+
+    class TraceTraceBoxEventStateAdapter {
+        var firstLine: String? = null
+        var otherLines: List<String>? = null
+        var type: String? = null
+        var time: Long? = null
+        var other: Map<String, String>? = null
+    }
 
     override fun dispose() {
         collectorsScope.cancel()
