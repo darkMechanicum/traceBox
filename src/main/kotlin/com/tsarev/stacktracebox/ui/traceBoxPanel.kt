@@ -1,6 +1,8 @@
 package com.tsarev.stacktracebox.ui
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -8,6 +10,7 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
+import com.tsarev.stacktracebox.ClearTracesAction
 import com.tsarev.stacktracebox.ProcessListenersRegistrar
 import com.tsarev.stacktracebox.TraceBoxStateHolder
 import kotlinx.coroutines.*
@@ -50,6 +53,11 @@ class TraceBoxPanel(
 
     init {
         setContent(myTree)
+        val actionGroup = DefaultActionGroup(
+            "TraceBoxActionGroup",
+            listOf(ClearTracesAction)
+        )
+        toolbar = ActionToolbarImpl("TraceBoxToolbar", actionGroup, false)
         reloadTraces()
     }
 
