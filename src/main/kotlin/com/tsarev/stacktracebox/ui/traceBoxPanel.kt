@@ -1,11 +1,13 @@
 package com.tsarev.stacktracebox.ui
 
+import com.intellij.icons.AllIcons
 import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
@@ -19,6 +21,7 @@ import com.tsarev.stacktracebox.ProcessListenersRegistrar
 import com.tsarev.stacktracebox.TraceBoxStateHolder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
+import java.awt.datatransfer.StringSelection
 import javax.swing.tree.DefaultMutableTreeNode
 
 /**
@@ -53,10 +56,24 @@ class TraceBoxPanel(
         )
     )
 
-    private val myContextActionGroup = DefaultActionGroup(
+    private val copyToClipboardAction = object : AnAction(
+        "Copy",
+        "Copies current trace to clipboard",
+        AllIcons.Actions.Copy
+    ) {
+        override fun actionPerformed(e: AnActionEvent) {
+            val text = myTree.selectedNode?.value?.text
+            if (text != null) {
+                CopyPasteManager.getInstance().setContents(StringSelection(text))
+            }
+        }
+    }
+
+    private val myContextActionGroup: DefaultActionGroup = DefaultActionGroup(
         "TraceBoxContextActionGroup",
         listOf(
-            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE)
+            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE),
+            copyToClipboardAction
         )
     )
 
