@@ -14,7 +14,7 @@ import com.intellij.ui.content.impl.ContentImpl
  * [TraceBoxPanel] creation and initialization factory.
  */
 @Service
-class TraceBoxToolWindowFactory : ToolWindowFactory, DumbAware {
+class TraceBoxToolWindowFactory : ToolWindowFactory {
     companion object {
 
         private const val toolWindowId = "com.tsarev.tracebox"

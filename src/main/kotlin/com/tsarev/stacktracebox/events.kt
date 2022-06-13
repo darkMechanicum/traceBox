@@ -74,7 +74,7 @@ class FirstTraceLine private constructor(
 ) : TraceLine(text) {
     companion object {
         private val regex = "\\s*([^:]*(Exception|Throwable)[^:]*)(:.*)?".toRegex()
-        fun parseOrNull(text: String) = regex.find(text)?.let { FirstTraceLine(text, it) }
+        fun parseOrNull(text: String) = regex.find(text.trim())?.let { FirstTraceLine(text, it) }
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match first trace pattern: $text")
     }
 
@@ -84,10 +84,16 @@ class FirstTraceLine private constructor(
 
     init {
         exception = match.groupValues[1]
-        exceptionText = if (match.groupValues.size >= 4) match.groupValues[3].removePrefix(":").trim() else null
+        exceptionText =
+            (if (match.groupValues.size >= 4) match.groupValues[3].removePrefix(":").trim() else null)
+                ?.takeIf { it.isNotBlank() }
     }
 
-    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(exception)
+    private val fqn by lazy {
+        exception.replace('$', '.')
+    }
+
+    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(fqn)
     override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, file.virtualFile, 0)
@@ -99,7 +105,7 @@ class CausedByTraceLine private constructor(
 ) : TraceLine(text) {
     companion object {
         private val regex = "\\s*Caused\\sby:\\s([^:]+)(:.+)?".toRegex()
-        fun parseOrNull(text: String) = regex.find(text)?.let { CausedByTraceLine(text, it) }
+        fun parseOrNull(text: String) = regex.find(text.trim())?.let { CausedByTraceLine(text, it) }
     }
 
     val causeException: String
@@ -123,7 +129,7 @@ class AtTraceLine private constructor(
 ) : TraceLine(text) {
     companion object {
         private val regex = "[\\t\\s]*at\\s([^(]+)(\\(([^)]+)(:\\d+)\\)?)?".toRegex()
-        fun parseOrNull(text: String) = regex.find(text)?.let { AtTraceLine(text, it) }
+        fun parseOrNull(text: String) = regex.find(text.trim())?.let { AtTraceLine(text, it) }
     }
 
     val methodName: String
@@ -158,6 +164,7 @@ class AtTraceLine private constructor(
 }
 
 fun Project.tryFindPsiFileFor(fqn: String) = JavaPsiFacadeEx
-        .getInstanceEx(this)
-        .findClass(fqn)
-        ?.containingFile
+    .getInstanceEx(this)
+    .findClass(fqn)
+    ?.sourceElement
+    ?.containingFile

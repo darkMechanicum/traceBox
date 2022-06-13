@@ -92,8 +92,10 @@ class ExpandableTraceNode(
     override fun update(presentation: PresentationData) = with(presentation) {
         addText("[${value.time}] ", SimpleTextAttributes.GRAY_ATTRIBUTES)
         addText(value.firstLine.exception, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
-        addText(": ", SimpleTextAttributes.REGULAR_ATTRIBUTES)
-        addText(value.firstLine.exceptionText, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        value.firstLine.exceptionText?.let {
+            addText(": ", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            addText(it, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        } ?: Unit
     }
 
 }
