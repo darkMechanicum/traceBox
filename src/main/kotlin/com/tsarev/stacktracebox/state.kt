@@ -9,6 +9,9 @@ import com.intellij.openapi.project.Project
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
+/**
+ * Service to persist captured traces.
+ */
 @Service
 @State(name = "com.tsarev.tracebox.traces")
 class TraceBoxStateHolder(
@@ -37,13 +40,15 @@ class TraceBoxStateHolder(
     override fun loadState(state: State): Unit = with(traceEventsQueue) {
         clear()
         state.storedExceptions?.forEach {
-            add(TraceTraceBoxEvent(
-                firstLine = it.firstLine!!,
-                otherLines = it.otherLines ?: emptyList(),
-                type = it.type!!,
-                time = it.time!!,
-                other = it.other ?: emptyMap(),
-            ))
+            add(
+                TraceTraceBoxEvent(
+                    firstLine = it.firstLine!!,
+                    otherLines = it.otherLines ?: emptyList(),
+                    type = it.type!!,
+                    time = it.time!!,
+                    other = it.other ?: emptyMap(),
+                )
+            )
         }
     }.also {
         TraceBoxToolWindowFactory.reloadAll(project)

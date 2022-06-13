@@ -11,11 +11,16 @@ import com.intellij.ui.content.impl.ContentImpl
 import com.tsarev.stacktracebox.ui.TraceBoxPanel
 
 
+/**
+ * [TraceBoxPanel] creation and initialization factory.
+ */
 @Service
 class TraceBoxToolWindowFactory : ToolWindowFactory, DumbAware {
     companion object {
 
         private const val toolWindowId = "com.tsarev.tracebox"
+
+        private const val toolWindowTitle = "Tracebox"
 
         fun reloadAll(project: Project) {
             val affectedPanels = ToolWindowManager.getInstance(project)
@@ -35,5 +40,7 @@ class TraceBoxToolWindowFactory : ToolWindowFactory, DumbAware {
         val panel = TraceBoxPanel(project)
         val content = ContentImpl(panel, "Traces", true)
         toolWindow.contentManager.addContent(content)
+        toolWindow.title = toolWindowTitle
+        toolWindow.isAutoHide = false
     }
 }

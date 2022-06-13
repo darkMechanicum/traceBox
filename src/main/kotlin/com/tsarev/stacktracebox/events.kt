@@ -1,8 +1,5 @@
 package com.tsarev.stacktracebox
 
-import com.intellij.util.xmlb.annotations.Tag
-import com.intellij.util.xmlb.annotations.Transient
-
 
 sealed class TraceBoxEvent
 

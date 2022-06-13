@@ -13,6 +13,9 @@ import com.tsarev.stacktracebox.TraceBoxStateHolder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 
+/**
+ * Main Tracebox tool window panel.
+ */
 class TraceBoxPanel(
     private val project: Project
 ) : SimpleToolWindowPanel(true), Disposable {

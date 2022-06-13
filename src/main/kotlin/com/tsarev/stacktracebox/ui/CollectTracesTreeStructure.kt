@@ -13,6 +13,7 @@ class CollectTracesTreeStructure(
     override fun commit() = Unit
     override fun hasSomethingToCommit() = false
     override fun getProviders() = mutableListOf<TreeStructureProvider>()
+
     @Suppress("SENSELESS_COMPARISON")
     override fun getChildElements(element: Any): Array<out BaseTraceNode> {
         return if (element is ExpandableTraceNode) {
