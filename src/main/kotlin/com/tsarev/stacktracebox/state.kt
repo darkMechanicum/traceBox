@@ -1,6 +1,7 @@
 package com.tsarev.stacktracebox
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -63,11 +64,13 @@ class TraceBoxStateHolder(
 
     private fun TraceBoxEvent.warmUpNavigation() = apply {
         if (this !is TraceTraceBoxEvent) return@apply
-        firstLine.getPsiFileCached(project)
-        firstLine.getNavigatableCached(project)
-        otherLines.forEach {
-            it.getPsiFileCached(project)
-            it.getNavigatableCached(project)
+        ApplicationManager.getApplication().runReadAction {
+            firstLine.getPsiFileCached(project)
+            firstLine.getNavigatableCached(project)
+            otherLines.forEach {
+                it.getPsiFileCached(project)
+                it.getNavigatableCached(project)
+            }
         }
     }
 
