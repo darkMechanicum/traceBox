@@ -3,9 +3,13 @@ package com.tsarev.stacktracebox
 import com.intellij.ide.util.PsiNavigationSupport
 import com.intellij.openapi.project.Project
 import com.intellij.pom.Navigatable
+import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.impl.JavaPsiFacadeEx
+import com.intellij.psi.util.ClassUtil
 
 
 sealed class TraceBoxEvent
@@ -52,19 +56,19 @@ sealed class TraceLine(val text: String) {
     }
 
     @Volatile
-    protected var psiFile: PsiFile? = null
+    protected var psiElement: PsiElement? = null
 
-    abstract fun getPsiFile(project: Project): PsiFile?
-    fun getPsiFileCached(project: Project) =
-        psiFile ?: getPsiFile(project)?.also { psiFile = it }
+    abstract fun getPsiElement(project: Project): PsiElement?
+    fun getPsiElementCached(project: Project) =
+        psiElement ?: getPsiElement(project)?.also { psiElement = it }
 
     @Volatile
     protected var navigatable: Navigatable? = null
 
-    abstract fun getNavigatable(project: Project, file: PsiFile): Navigatable?
+    abstract fun getNavigatable(project: Project, psiElement: PsiElement): Navigatable?
     fun getNavigatableCached(project: Project) =
-        navigatable ?: getPsiFileCached(project)?.let { file ->
-            getNavigatable(project, file)?.also { navigatable = it }
+        navigatable ?: getPsiElementCached(project)?.let { element ->
+            getNavigatable(project, element)?.also { navigatable = it }
         }
 }
 
@@ -89,14 +93,10 @@ class FirstTraceLine private constructor(
                 ?.takeIf { it.isNotBlank() }
     }
 
-    private val fqn by lazy {
-        exception.replace('$', '.')
-    }
-
-    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(fqn)
-    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(exception)
+    override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
-        .createNavigatable(project, file.virtualFile, 0)
+        .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
 }
 
 class CausedByTraceLine private constructor(
@@ -117,10 +117,10 @@ class CausedByTraceLine private constructor(
         causeText = if (match.groupValues.size > 2) match.groupValues[2].removePrefix(":") else null
     }
 
-    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(causeException)
-    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(causeException)
+    override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
-        .createNavigatable(project, file.virtualFile, 0)
+        .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
 }
 
 class AtTraceLine private constructor(
@@ -151,20 +151,20 @@ class AtTraceLine private constructor(
         methodName.substring(0..fqnEndIndex)
     }
 
-    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(fqn)
-    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(fqn)
+    override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
-        .createNavigatable(project, file.virtualFile, getOffset(project, file))
+        .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))
 
-    private fun getOffset(project: Project, file: PsiFile) = position?.let {
+    private fun getOffset(project: Project, psiElement: PsiElement) = position?.let {
         PsiDocumentManager.getInstance(project)
-            .getDocument(file)
+            .getDocument(psiElement.containingFile)
             ?.getLineStartOffset(it - 1)
     } ?: 0
 }
 
-fun Project.tryFindPsiFileFor(fqn: String) = JavaPsiFacadeEx
-    .getInstanceEx(this)
-    .findClass(fqn)
-    ?.sourceElement
-    ?.containingFile
+fun Project.tryFindPsiFileFor(fqn: String): PsiClass? {
+    val psiManager = PsiManager.getInstance(this)
+    val result = ClassUtil.findPsiClass(psiManager, fqn)
+    return result
+}

@@ -107,9 +107,9 @@ class TraceBoxPanel(
         CommonDataKeys.NAVIGATABLE.`is`(dataId) ->
             myTree.selectedNode?.managedLine?.getNavigatableCached(project)
         CommonDataKeys.VIRTUAL_FILE.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiFileCached(project)?.virtualFile
+            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
         CommonDataKeys.VIRTUAL_FILE_ARRAY.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiFileCached(project)?.virtualFile
+            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
                 ?.let { arrayOf(it) } ?: VirtualFile.EMPTY_ARRAY
         else -> super.getData(dataId)
     }

@@ -65,10 +65,10 @@ class TraceBoxStateHolder(
     private fun TraceBoxEvent.warmUpNavigation() = apply {
         if (this !is TraceTraceBoxEvent) return@apply
         ApplicationManager.getApplication().runReadAction {
-            firstLine.getPsiFileCached(project)
+            firstLine.getPsiElementCached(project)
             firstLine.getNavigatableCached(project)
             otherLines.forEach {
-                it.getPsiFileCached(project)
+                it.getPsiElementCached(project)
                 it.getNavigatableCached(project)
             }
         }
