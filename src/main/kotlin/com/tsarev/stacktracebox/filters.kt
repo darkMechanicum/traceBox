@@ -1,7 +1,9 @@
 package com.tsarev.stacktracebox
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -15,6 +17,10 @@ val String.isTraceInnerLine get() = matches(traceLineRegex)
 val traceCausedByLineRegex = "Caused by: .+".toRegex()
 val String.isTraceCausedByLine get() = matches(traceCausedByLineRegex)
 
+fun String.removeNewLines() = removeSuffix("\n").removePrefix("\n")
+fun Flow<TraceBoxEvent>.removeBlankText() =
+    map { if (it is TextTraceBoxEvent) it.copy(text = it.text.removeNewLines()) else it }
+        .filter { it !is TextTraceBoxEvent || it.text.isNotBlank() }
 
 /**
  * Transforms [TraceBoxEvent] by dividing input in lines and emiting them in bulk
@@ -30,15 +36,16 @@ suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
     val isRecordingByType = ConcurrentHashMap<String, Boolean>()
     val aggregators = ConcurrentHashMap<String, ConcurrentLinkedQueue<String>>()
     fun aggregatorByType(type: String) = aggregators.computeIfAbsent(type) { ConcurrentLinkedQueue<String>() }
-    collect { event ->
+    removeBlankText().collect { event ->
         if (event !is TextTraceBoxEvent)
             emit(event)
         else {
             val type = event.type
             event.text.split('\n').forEach { line ->
                 if (isRecordingByType[type] == true) {
-                    if (line.isTraceInnerLine || line.isTraceCausedByLine) aggregatorByType(type).add(line)
-                    else {
+                    if (line.isTraceInnerLine || line.isTraceCausedByLine) {
+                        aggregatorByType(type).add(line)
+                    } else {
                         val usedAggregator = aggregatorByType(type)
                         val firstTraceLine = usedAggregator.first()
                         val otherLines = usedAggregator.drop(1).toList()

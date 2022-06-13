@@ -9,10 +9,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -82,7 +79,8 @@ class LogProcessListener(
 
     // This flow must be shared - since process listening can be independent of
     // its output processing.
-    val listenerFlow = eventsFlow.shareIn(listenerScope, SharingStarted.Eagerly)
+    val listenerFlow = eventsFlow
+        .shareIn(listenerScope, SharingStarted.Eagerly)
 
     init {
         runBlocking {

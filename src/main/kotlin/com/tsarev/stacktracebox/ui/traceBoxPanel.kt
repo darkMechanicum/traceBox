@@ -25,18 +25,25 @@ class TraceBoxPanel(
 
     private val application = ApplicationManager.getApplication()
 
-    private val myTreeStructure = CollectTracesTreeStructure(project)
+    private val stateHolder = project.service<TraceBoxStateHolder>()
+
+    private val myTreeStructure = CollectTracesTreeStructure(project, stateHolder)
 
     private val myStructureTreeModel = StructureTreeModel(myTreeStructure, project)
 
+    private val myActionGroup = DefaultActionGroup(
+        "TraceBoxActionGroup",
+        listOf(ClearTracesAction)
+    )
+
+    private val myToolbar = ActionToolbarImpl("TraceBoxToolbar", myActionGroup, false)
+
     private val myTree = Tree().apply {
-        isRootVisible = true
+        isRootVisible = false
         model = AsyncTreeModel(myStructureTreeModel, project)
     }
 
     private val listenerRegistrar = project.service<ProcessListenersRegistrar>()
-
-    private val stateHolder = project.service<TraceBoxStateHolder>()
 
     @OptIn(DelicateCoroutinesApi::class, FlowPreview::class)
     private val job = GlobalScope.launch {
@@ -53,22 +60,14 @@ class TraceBoxPanel(
 
     init {
         setContent(myTree)
-        val actionGroup = DefaultActionGroup(
-            "TraceBoxActionGroup",
-            listOf(ClearTracesAction)
-        )
-        toolbar = ActionToolbarImpl("TraceBoxToolbar", actionGroup, false)
+        myToolbar.targetComponent = myTree
+        toolbar = myToolbar
         reloadTraces()
     }
 
     override fun dispose() = job.cancel()
 
-    fun reloadTraces() = with(myTreeStructure) {
-        traces.clear()
-        traces.addAll(stateHolder.traceEventsQueue.toList().map {
-            it.text.lines().first() to it.text.lines().drop(1)
-                .joinToString(separator = "\n") { it }
-        })
+    fun reloadTraces() {
         application.invokeLater {
             myStructureTreeModel.invalidate()
         }

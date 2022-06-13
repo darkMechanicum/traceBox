@@ -3,11 +3,13 @@ package com.tsarev.stacktracebox.ui
 import com.intellij.ide.projectView.TreeStructureProvider
 import com.intellij.ide.util.treeView.AbstractTreeStructureBase
 import com.intellij.openapi.project.Project
+import com.tsarev.stacktracebox.TraceBoxStateHolder
 
 class CollectTracesTreeStructure(
-    private val project: Project
+    private val project: Project,
+    private val stateHolder: TraceBoxStateHolder
 ) : AbstractTreeStructureBase(project) {
-    val traces = mutableListOf<Pair<String, String>>()
+
     private val rootNode = RootTraceNode(project)
     override fun getRootElement() = rootNode
     override fun commit() = Unit
@@ -18,9 +20,10 @@ class CollectTracesTreeStructure(
     override fun getChildElements(element: Any): Array<out BaseTraceNode> {
         return if (element is ExpandableTraceNode) {
             element.children.toTypedArray()
-        } else if (element == null || element === rootNode) traces.mapIndexed { index, it ->
-            ExpandableTraceNode(project, "$index ${it.first}", it.second)
-        }.toTypedArray()
+        } else if (element == null || element === rootNode)
+            stateHolder
+                .traceEventsQueue.map { ExpandableTraceNode(project, it) }
+                .toTypedArray()
         else emptyArray()
     }
 }
