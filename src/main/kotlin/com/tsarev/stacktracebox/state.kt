@@ -45,7 +45,9 @@ class TraceBoxStateHolder(
                 other = it.other ?: emptyMap(),
             ))
         }
-    }
+    }.also {
+        TraceBoxToolWindowFactory.reloadAll(project)
+    } ?: Unit
 
     override fun initializeComponent() {
         val listenersRegistrar = project.service<ProcessListenersRegistrar>()

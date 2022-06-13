@@ -7,7 +7,6 @@ import com.intellij.openapi.project.Project
 class CollectTracesTreeStructure(
     private val project: Project
 ) : AbstractTreeStructureBase(project) {
-    var counter = 1
     val traces = mutableListOf<Pair<String, String>>()
     private val rootNode = RootTraceNode(project)
     override fun getRootElement() = rootNode
@@ -18,8 +17,8 @@ class CollectTracesTreeStructure(
     override fun getChildElements(element: Any): Array<out BaseTraceNode> {
         return if (element is ExpandableTraceNode) {
             element.children.toTypedArray()
-        } else if (element == null || element === rootNode) traces.map {
-            ExpandableTraceNode(project, "$${counter++} ${it.first}", it.second)
+        } else if (element == null || element === rootNode) traces.mapIndexed { index, it ->
+            ExpandableTraceNode(project, "$index ${it.first}", it.second)
         }.toTypedArray()
         else emptyArray()
     }

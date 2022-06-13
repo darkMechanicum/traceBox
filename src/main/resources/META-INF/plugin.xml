@@ -25,9 +25,9 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.tsarev.stacktracebox.CollectLogsToolWindowFactory"
+        <toolWindow factoryClass="com.tsarev.stacktracebox.TraceBoxToolWindowFactory"
                     id="com.tsarev.tracebox"
-                    anchor="left"
+                    anchor="bottom"
         />
     </extensions>
 </idea-plugin>
