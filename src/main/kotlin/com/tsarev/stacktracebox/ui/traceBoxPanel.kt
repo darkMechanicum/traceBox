@@ -2,8 +2,7 @@ package com.tsarev.stacktracebox.ui
 
 import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.CommonDataKeys
-import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -11,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.AutoScrollToSourceHandler
+import com.intellij.ui.PopupHandler
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
@@ -45,20 +45,32 @@ class TraceBoxPanel(
         }
     }
 
-    private val myActionGroup = DefaultActionGroup(
-        "TraceBoxActionGroup",
+    private val myToolbarActionGroup = DefaultActionGroup(
+        "TraceBoxToolbarActionGroup",
         listOf(
             ClearTracesAction,
             myAutoScrollToSource.createToggleAction()
         )
     )
 
-    private val myToolbar = ActionToolbarImpl("TraceBoxToolbar", myActionGroup, false)
+    private val myContextActionGroup = DefaultActionGroup(
+        "TraceBoxContextActionGroup",
+        listOf(
+            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE)
+        )
+    )
+
+    private val myToolbar = ActionToolbarImpl("TraceBoxToolbar", myToolbarActionGroup, false)
 
     private val myTree = Tree().apply {
         isRootVisible = false
         model = AsyncTreeModel(myStructureTreeModel, project)
         myAutoScrollToSource.install(this)
+        PopupHandler.installPopupMenu(
+            this,
+            myContextActionGroup,
+            "TraceBoxPopupMenu",
+        )
     }
 
     private val listenerRegistrar = project.service<ProcessListenersRegistrar>()
