@@ -8,15 +8,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 
-val traceFirstLineRegex = ".*?(Exception|Throwable)[^:]*:.*".toRegex()
-val String.isTraceFirstLine get() = matches(traceFirstLineRegex)
-
-val traceLineRegex = "[\\t ]+at [^(]+\\([^)]+\\)?".toRegex()
-val String.isTraceInnerLine get() = matches(traceLineRegex)
-
-val traceCausedByLineRegex = "Caused by: .+".toRegex()
-val String.isTraceCausedByLine get() = matches(traceCausedByLineRegex)
-
 fun String.removeNewLines() = removeSuffix("\n").removePrefix("\n")
 fun Flow<TraceBoxEvent>.removeBlankText() =
     map { if (it is TextTraceBoxEvent) it.copy(text = it.text.removeNewLines()) else it }
@@ -27,15 +18,15 @@ fun Flow<TraceBoxEvent>.removeBlankText() =
  * if they look like exception stack trace.
  *
  * Lines are treated as exception stack trace if first line matches [traceFirstLineRegex]
- * and other matches [traceLineRegex] or [traceCausedByLineRegex].
+ * and other matches [atTraceLineRegex] or [traceCausedByLineRegex].
  *
  * Each event type is processes independently of others, since stdout and
  * stderr events can be mixed shaken.
  */
 suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
     val isRecordingByType = ConcurrentHashMap<String, Boolean>()
-    val aggregators = ConcurrentHashMap<String, ConcurrentLinkedQueue<String>>()
-    fun aggregatorByType(type: String) = aggregators.computeIfAbsent(type) { ConcurrentLinkedQueue<String>() }
+    val aggregators = ConcurrentHashMap<String, ConcurrentLinkedQueue<TraceLine>>()
+    fun aggregatorByType(type: String) = aggregators.computeIfAbsent(type) { ConcurrentLinkedQueue<TraceLine>() }
     removeBlankText().collect { event ->
         if (event !is TextTraceBoxEvent)
             emit(event)
@@ -43,8 +34,9 @@ suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
             val type = event.type
             event.text.split('\n').forEach { line ->
                 if (isRecordingByType[type] == true) {
-                    if (line.isTraceInnerLine || line.isTraceCausedByLine) {
-                        aggregatorByType(type).add(line)
+                    val parsedLine = TraceLine.parseOrNull(line)
+                    if (parsedLine != null) {
+                        aggregatorByType(type).add(parsedLine)
                     } else {
                         val usedAggregator = aggregatorByType(type)
                         val firstTraceLine = usedAggregator.first()
@@ -53,7 +45,7 @@ suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
                         isRecordingByType[type] = false
                         emit(
                             TraceTraceBoxEvent(
-                                firstTraceLine,
+                                firstTraceLine as FirstTraceLine,
                                 otherLines,
                                 type,
                                 System.currentTimeMillis(),
@@ -62,9 +54,10 @@ suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
                         )
                     }
                 } else {
-                    if (line.isTraceFirstLine) {
+                    val firstLie = FirstTraceLine.parseOrNull(line)
+                    if (firstLie != null) {
                         isRecordingByType[type] = true
-                        aggregatorByType(type).add(line)
+                        aggregatorByType(type).add(firstLie)
                     }
                 }
             }

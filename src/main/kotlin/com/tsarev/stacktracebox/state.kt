@@ -27,8 +27,8 @@ class TraceBoxStateHolder(
     override fun getState() = State().apply {
         val traces = traceEventsQueue.map {
             TraceTraceBoxEventStateAdapter().apply {
-                firstLine = it.firstLine
-                otherLines = it.otherLines
+                firstLine = it.firstLine.text
+                otherLines = it.otherLines.map { it.text }
                 type = it.type
                 time = it.time
                 other = it.other
@@ -42,8 +42,8 @@ class TraceBoxStateHolder(
         state.storedExceptions?.forEach {
             add(
                 TraceTraceBoxEvent(
-                    firstLine = it.firstLine!!,
-                    otherLines = it.otherLines ?: emptyList(),
+                    firstLine = FirstTraceLine.parse(it.firstLine!!),
+                    otherLines = it.otherLines?.map { TraceLine.parse(it) } ?: emptyList(),
                     type = it.type!!,
                     time = it.time!!,
                     other = it.other ?: emptyMap(),

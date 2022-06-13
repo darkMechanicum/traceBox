@@ -4,6 +4,9 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
+import com.tsarev.stacktracebox.AtTraceLine
+import com.tsarev.stacktracebox.CausedByTraceLine
+import com.tsarev.stacktracebox.FirstTraceLine
 import com.tsarev.stacktracebox.TraceTraceBoxEvent
 
 sealed class BaseTraceNode(
@@ -15,7 +18,13 @@ sealed class BaseTraceNode(
     }
 }
 
-val rootDummy = TraceTraceBoxEvent("dummy", emptyList(), "dummy", 0, emptyMap())
+val rootDummy = TraceTraceBoxEvent(
+    FirstTraceLine.parse("Exception"),
+    emptyList(),
+    "dummy",
+    0,
+    emptyMap()
+)
 
 class RootTraceNode(project: Project) : BaseTraceNode(project, rootDummy) {
     override fun update(presentation: PresentationData) {
@@ -28,12 +37,43 @@ class ExpandedTraceNode(
     value: TraceTraceBoxEvent,
     val traceLineIndex: Int
 ) : BaseTraceNode(project, value) {
-    override fun update(presentation: PresentationData) {
-        presentation.addText(
-            value.otherLines[traceLineIndex],
-            SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES
-        )
+
+    override fun update(presentation: PresentationData) = when (val line = value.otherLines[traceLineIndex]) {
+        is CausedByTraceLine -> {
+            presentation.addText("Caused by", SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
+            presentation.addText(line.causeException, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+            if (line.causeText != null) {
+                presentation.addText(": ", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                presentation.addText(line.causeText, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+            } else Unit
+        }
+
+        is AtTraceLine -> {
+            @Suppress("DialogTitleCapitalization")
+            presentation.addText("at ", SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
+            presentation.addText(line.methodName, SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
+            if (line.className != null) {
+                presentation.addText("(", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                presentation.addText(line.className, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                if (line.position != null) {
+                    presentation.addText(":${line.position}", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                }
+                presentation.addText(")", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+            } else Unit
+        }
+
+        else -> Unit
     }
+
+    // Equals and hasCode override is added to workaround [AsyncTreeModel] duplicates removal.
+    override fun equals(other: Any?) =
+        this === other ||
+                javaClass == other?.javaClass &&
+                super.equals(other) &&
+                other is ExpandedTraceNode &&
+                traceLineIndex == other.traceLineIndex
+
+    override fun hashCode() = 31 * super.hashCode() + traceLineIndex
 }
 
 class ExpandableTraceNode(
@@ -46,7 +86,9 @@ class ExpandableTraceNode(
 
     override fun update(presentation: PresentationData) = with(presentation) {
         addText("[${value.time}] ", SimpleTextAttributes.GRAY_ATTRIBUTES)
-        addText(value.firstLine, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        addText(value.firstLine.exception, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+        addText(": ", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        addText(value.firstLine.exceptionText, SimpleTextAttributes.REGULAR_ATTRIBUTES)
     }
 
 }
