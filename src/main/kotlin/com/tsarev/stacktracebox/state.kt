@@ -8,6 +8,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
@@ -60,11 +61,22 @@ class TraceBoxStateHolder(
         collectorsScope.launch { listenersRegistrar.doCollectLogs() }
     }
 
+    private fun TraceBoxEvent.warmUpNavigation() = apply {
+        if (this !is TraceTraceBoxEvent) return@apply
+        firstLine.getPsiFileCached(project)
+        firstLine.getNavigatableCached(project)
+        otherLines.forEach {
+            it.getPsiFileCached(project)
+            it.getNavigatableCached(project)
+        }
+    }
+
     private suspend fun ProcessListenersRegistrar.doCollectLogs() {
         listenersFlow.collect { flow ->
             coroutineScope {
                 launch collectingProcessLogs@{
                     flow.filterStackTraces()
+                        .map { it.warmUpNavigation() }
                         .collect {
                             when (it) {
                                 is ProcessEndTraceBoxEvent -> this@collectingProcessLogs.cancel()

@@ -153,7 +153,7 @@ class AtTraceLine private constructor(
     private fun getOffset(project: Project, file: PsiFile) = position?.let {
         PsiDocumentManager.getInstance(project)
             .getDocument(file)
-            ?.getLineStartOffset(it)
+            ?.getLineStartOffset(it - 1)
     } ?: 0
 }
 
