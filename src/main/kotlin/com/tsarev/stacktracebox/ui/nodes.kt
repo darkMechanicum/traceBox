@@ -4,15 +4,15 @@ import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
-import com.tsarev.stacktracebox.AtTraceLine
-import com.tsarev.stacktracebox.CausedByTraceLine
-import com.tsarev.stacktracebox.FirstTraceLine
-import com.tsarev.stacktracebox.TraceTraceBoxEvent
+import com.tsarev.stacktracebox.*
 
 sealed class BaseTraceNode(
     project: Project,
     value: TraceTraceBoxEvent
 ) : AbstractTreeNode<TraceTraceBoxEvent>(project, value) {
+
+    open val managedLine: TraceLine? get() = null
+
     override fun getChildren(): MutableCollection<out AbstractTreeNode<*>> {
         return mutableListOf<ExpandableTraceNode>()
     }
@@ -38,6 +38,8 @@ class ExpandedTraceNode(
     val traceLineIndex: Int
 ) : BaseTraceNode(project, value) {
 
+    override val managedLine get() = value.otherLines[traceLineIndex]
+
     override fun update(presentation: PresentationData) = when (val line = value.otherLines[traceLineIndex]) {
         is CausedByTraceLine -> {
             presentation.addText("Caused by", SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
@@ -52,9 +54,9 @@ class ExpandedTraceNode(
             @Suppress("DialogTitleCapitalization")
             presentation.addText("at ", SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
             presentation.addText(line.methodName, SimpleTextAttributes.REGULAR_ITALIC_ATTRIBUTES)
-            if (line.className != null) {
+            if (line.classSimpleName != null) {
                 presentation.addText("(", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
-                presentation.addText(line.className, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
+                presentation.addText(line.classSimpleName, SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
                 if (line.position != null) {
                     presentation.addText(":${line.position}", SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES)
                 }
@@ -80,6 +82,9 @@ class ExpandableTraceNode(
     project: Project,
     value: TraceTraceBoxEvent,
 ) : BaseTraceNode(project, value) {
+
+    override val managedLine get() = value.firstLine
+
     override fun getChildren(): MutableCollection<ExpandedTraceNode> =
         List(value.otherLines.size) { index -> ExpandedTraceNode(project!!, value, index) }
             .toMutableList()

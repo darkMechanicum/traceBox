@@ -1,5 +1,12 @@
 package com.tsarev.stacktracebox
 
+import com.intellij.ide.util.PsiNavigationSupport
+import com.intellij.openapi.project.Project
+import com.intellij.pom.Navigatable
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiFile
+import com.intellij.psi.impl.JavaPsiFacadeEx
+
 
 sealed class TraceBoxEvent
 
@@ -43,6 +50,22 @@ sealed class TraceLine(val text: String) {
 
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match one of trace patterns: $text")
     }
+
+    @Volatile
+    protected var psiFile: PsiFile? = null
+
+    abstract fun getPsiFile(project: Project): PsiFile?
+    fun getPsiFileCached(project: Project) =
+        psiFile ?: getPsiFile(project)?.also { psiFile = it }
+
+    @Volatile
+    protected var navigatable: Navigatable? = null
+
+    abstract fun getNavigatable(project: Project, file: PsiFile): Navigatable?
+    fun getNavigatableCached(project: Project) =
+        navigatable ?: getPsiFileCached(project)?.let { file ->
+            getNavigatable(project, file)?.also { navigatable = it }
+        }
 }
 
 class FirstTraceLine private constructor(
@@ -63,6 +86,11 @@ class FirstTraceLine private constructor(
         exception = match.groupValues[1]
         exceptionText = if (match.groupValues.size >= 4) match.groupValues[3].removePrefix(":").trim() else null
     }
+
+    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(exception)
+    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+        .getInstance()
+        .createNavigatable(project, file.virtualFile, 0)
 }
 
 class CausedByTraceLine private constructor(
@@ -82,6 +110,11 @@ class CausedByTraceLine private constructor(
         causeException = match.groupValues[1]
         causeText = if (match.groupValues.size > 2) match.groupValues[2].removePrefix(":") else null
     }
+
+    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(causeException)
+    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+        .getInstance()
+        .createNavigatable(project, file.virtualFile, 0)
 }
 
 class AtTraceLine private constructor(
@@ -95,13 +128,36 @@ class AtTraceLine private constructor(
 
     val methodName: String
 
-    val className: String?
+    val classSimpleName: String?
 
     val position: Int?
 
     init {
         methodName = match.groupValues[1]
-        className = if (match.groupValues.size >= 4) match.groupValues[3] else null
+        classSimpleName = if (match.groupValues.size >= 4) match.groupValues[3] else null
         position = if (match.groupValues.size >= 5) match.groupValues[4].removePrefix(":").toInt() else null
     }
+
+    val fqn by lazy {
+        val indexOfInner = methodName.indexOf('$')
+        val fqnEndIndex = if (indexOfInner != -1) indexOfInner - 1
+        else methodName.lastIndexOf('.') - 1
+        methodName.substring(0..fqnEndIndex)
+    }
+
+    override fun getPsiFile(project: Project) = project.tryFindPsiFileFor(fqn)
+    override fun getNavigatable(project: Project, file: PsiFile) = PsiNavigationSupport
+        .getInstance()
+        .createNavigatable(project, file.virtualFile, getOffset(project, file))
+
+    private fun getOffset(project: Project, file: PsiFile) = position?.let {
+        PsiDocumentManager.getInstance(project)
+            .getDocument(file)
+            ?.getLineStartOffset(it)
+    } ?: 0
 }
+
+fun Project.tryFindPsiFileFor(fqn: String) = JavaPsiFacadeEx
+        .getInstanceEx(this)
+        .findClass(fqn)
+        ?.containingFile
