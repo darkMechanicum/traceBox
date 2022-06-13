@@ -114,7 +114,7 @@ class TraceBoxPanel(
         else -> super.getData(dataId)
     }
 
-    val Tree.selectedNode: BaseTraceNode? get() = selectionPath
+    private val Tree.selectedNode: BaseTraceNode? get() = selectionPath
         ?.lastPathComponent
         ?.tryCast<DefaultMutableTreeNode>()
         ?.userObject
@@ -122,5 +122,5 @@ class TraceBoxPanel(
         ?.element
         ?.tryCast<BaseTraceNode>()
 
-    inline fun <reified T> Any?.tryCast() = this as? T
+    private inline fun <reified T> Any?.tryCast() = this as? T
 }

@@ -1,4 +1,4 @@
-package com.tsarev.stacktracebox
+package com.tsarev.stacktracebox.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -8,7 +8,6 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.impl.ContentImpl
-import com.tsarev.stacktracebox.ui.TraceBoxPanel
 
 
 /**

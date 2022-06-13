@@ -17,8 +17,8 @@ fun Flow<TraceBoxEvent>.removeBlankText() =
  * Transforms [TraceBoxEvent] by dividing input in lines and emiting them in bulk
  * if they look like exception stack trace.
  *
- * Lines are treated as exception stack trace if first line matches [traceFirstLineRegex]
- * and other matches [atTraceLineRegex] or [traceCausedByLineRegex].
+ * Lines are treated as exception stack trace if first line matches [FirstTraceLine.regex]
+ * and other matches [AtTraceLine.regex] or [CausedByTraceLine.regex].
  *
  * Each event type is processes independently of others, since stdout and
  * stderr events can be mixed shaken.

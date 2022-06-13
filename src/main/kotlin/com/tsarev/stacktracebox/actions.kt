@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
+import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 
 /**
  * Clears all registered traces and invalidates tool window panel.

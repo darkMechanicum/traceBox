@@ -138,7 +138,7 @@ class AtTraceLine private constructor(
         position = if (match.groupValues.size >= 5) match.groupValues[4].removePrefix(":").toInt() else null
     }
 
-    val fqn by lazy {
+    private val fqn by lazy {
         val indexOfInner = methodName.indexOf('$')
         val fqnEndIndex = if (indexOfInner != -1) indexOfInner - 1
         else methodName.lastIndexOf('.') - 1

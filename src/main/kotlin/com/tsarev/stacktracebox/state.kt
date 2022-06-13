@@ -6,6 +6,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
