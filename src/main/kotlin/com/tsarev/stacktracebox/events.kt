@@ -47,10 +47,10 @@ sealed class TraceLine(val text: String) {
 
 class FirstTraceLine private constructor(
     text: String,
-    matchResult: MatchResult
+    match: MatchResult
 ) : TraceLine(text) {
     companion object {
-        val regex = "\\s*([^:]*(Exception|Throwable)[^:]*)(:.*)?".toRegex()
+        private val regex = "\\s*([^:]*(Exception|Throwable)[^:]*)(:.*)?".toRegex()
         fun parseOrNull(text: String) = regex.find(text)?.let { FirstTraceLine(text, it) }
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match first trace pattern: $text")
     }
@@ -60,17 +60,17 @@ class FirstTraceLine private constructor(
     val exceptionText: String?
 
     init {
-        val match = regex.find(text) ?: error("Do not create [${this::class.simpleName}] with not matching text")
         exception = match.groupValues[1]
         exceptionText = if (match.groupValues.size >= 4) match.groupValues[3].removePrefix(":").trim() else null
     }
 }
+
 class CausedByTraceLine private constructor(
     text: String,
-    matchResult: MatchResult
+    match: MatchResult
 ) : TraceLine(text) {
     companion object {
-        val regex = "\\s*Caused\\sby:\\s([^:]+)(:.+)?".toRegex()
+        private val regex = "\\s*Caused\\sby:\\s([^:]+)(:.+)?".toRegex()
         fun parseOrNull(text: String) = regex.find(text)?.let { CausedByTraceLine(text, it) }
     }
 
@@ -79,17 +79,17 @@ class CausedByTraceLine private constructor(
     val causeText: String?
 
     init {
-        val match = regex.find(text) ?: error("Do not create [${this::class.simpleName}] with not matching text")
         causeException = match.groupValues[1]
         causeText = if (match.groupValues.size > 2) match.groupValues[2].removePrefix(":") else null
     }
 }
+
 class AtTraceLine private constructor(
     text: String,
-    matchResult: MatchResult
+    match: MatchResult
 ) : TraceLine(text) {
     companion object {
-        val regex = "[\\t\\s]*at\\s([^(]+)(\\(([^)]+)(:\\d+)\\)?)?".toRegex()
+        private val regex = "[\\t\\s]*at\\s([^(]+)(\\(([^)]+)(:\\d+)\\)?)?".toRegex()
         fun parseOrNull(text: String) = regex.find(text)?.let { AtTraceLine(text, it) }
     }
 
@@ -100,7 +100,6 @@ class AtTraceLine private constructor(
     val position: Int?
 
     init {
-        val match = regex.find(text) ?: error("Do not create [${this::class.simpleName}] with not matching text")
         methodName = match.groupValues[1]
         className = if (match.groupValues.size >= 4) match.groupValues[3] else null
         position = if (match.groupValues.size >= 5) match.groupValues[4].removePrefix(":").toInt() else null
