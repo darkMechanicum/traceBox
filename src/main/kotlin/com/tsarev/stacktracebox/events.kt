@@ -6,9 +6,7 @@ import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
-import com.intellij.psi.impl.JavaPsiFacadeEx
 import com.intellij.psi.util.ClassUtil
 
 
@@ -52,24 +50,20 @@ sealed class TraceLine(val text: String) {
                 ?: CausedByTraceLine.parseOrNull(text)
                 ?: AtTraceLine.parseOrNull(text)
 
+        fun parseNonFirstLineOrNull(text: String) =
+            CausedByTraceLine.parseOrNull(text)
+                ?: AtTraceLine.parseOrNull(text)
+
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match one of trace patterns: $text")
     }
 
-    @Volatile
-    protected var psiElement: PsiElement? = null
-
     abstract fun getPsiElement(project: Project): PsiElement?
-    fun getPsiElementCached(project: Project) =
-        psiElement ?: getPsiElement(project)?.also { psiElement = it }
+    abstract fun getNavigatable(
+        project: Project,
+        psiElement: PsiElement
+    ): Navigatable?
 
-    @Volatile
-    protected var navigatable: Navigatable? = null
-
-    abstract fun getNavigatable(project: Project, psiElement: PsiElement): Navigatable?
-    fun getNavigatableCached(project: Project) =
-        navigatable ?: getPsiElementCached(project)?.let { element ->
-            getNavigatable(project, element)?.also { navigatable = it }
-        }
+    fun getNavigatable(project: Project) = getPsiElement(project)?.let { getNavigatable(project, it) }
 }
 
 class FirstTraceLine private constructor(
@@ -141,7 +135,7 @@ class AtTraceLine private constructor(
     init {
         methodName = match.groupValues[1]
         classSimpleName = if (match.groupValues.size >= 4) match.groupValues[3] else null
-        position = if (match.groupValues.size >= 5) match.groupValues[4].removePrefix(":").toInt() else null
+        position = if (match.groupValues.size >= 5) match.groupValues[4].removePrefix(":").toIntOrNull() else null
     }
 
     private val fqn by lazy {

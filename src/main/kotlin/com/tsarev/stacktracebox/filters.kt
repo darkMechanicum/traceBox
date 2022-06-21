@@ -26,41 +26,53 @@ fun Flow<TraceBoxEvent>.removeBlankText() =
 suspend fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
     val isRecordingByType = ConcurrentHashMap<String, Boolean>()
     val aggregators = ConcurrentHashMap<String, ConcurrentLinkedQueue<TraceLine>>()
+
     fun aggregatorByType(type: String) = aggregators.computeIfAbsent(type) { ConcurrentLinkedQueue<TraceLine>() }
+
+    // Line analyze and [TraceTraceBoxEvent] emission.
+    suspend fun analyzeLine(line: String, type: String, emit: suspend (TraceBoxEvent) -> Unit) {
+        if (isRecordingByType[type] == true) {
+            val parsedLine = TraceLine.parseNonFirstLineOrNull(line)
+            if (parsedLine != null) {
+                aggregatorByType(type).add(parsedLine)
+            } else {
+                val usedAggregator = aggregatorByType(type)
+                val firstTraceLine = usedAggregator.firstOrNull()
+                isRecordingByType[type] = false
+                if (firstTraceLine != null) {
+                    val otherLines = usedAggregator.drop(1).toList()
+                    usedAggregator.clear()
+                    emit(
+                        TraceTraceBoxEvent(
+                            firstTraceLine as FirstTraceLine,
+                            otherLines,
+                            type,
+                            System.currentTimeMillis(),
+                            emptyMap(),
+                        )
+                    )
+                    // Try second time, in case it is first line of new exception.
+                    analyzeLine(line, type, emit)
+                }
+            }
+        } else {
+            val firstLine = FirstTraceLine.parseOrNull(line)
+            if (firstLine != null) {
+                isRecordingByType[type] = true
+                aggregatorByType(type).add(firstLine)
+            }
+        }
+    }
+
+    // Actual transforming.
     removeBlankText().collect { event ->
         if (event !is TextTraceBoxEvent)
             emit(event)
         else {
             val type = event.type
-            event.text.split('\n').forEach { line ->
-                if (isRecordingByType[type] == true) {
-                    val parsedLine = TraceLine.parseOrNull(line)
-                    if (parsedLine != null) {
-                        aggregatorByType(type).add(parsedLine)
-                    } else {
-                        val usedAggregator = aggregatorByType(type)
-                        val firstTraceLine = usedAggregator.first()
-                        val otherLines = usedAggregator.drop(1).toList()
-                        usedAggregator.clear()
-                        isRecordingByType[type] = false
-                        emit(
-                            TraceTraceBoxEvent(
-                                firstTraceLine as FirstTraceLine,
-                                otherLines,
-                                type,
-                                System.currentTimeMillis(),
-                                emptyMap(),
-                            )
-                        )
-                    }
-                } else {
-                    val firstLie = FirstTraceLine.parseOrNull(line)
-                    if (firstLie != null) {
-                        isRecordingByType[type] = true
-                        aggregatorByType(type).add(firstLie)
-                    }
-                }
-            }
+            event.text.split('\n')
+                .filter { it.isNotBlank() }
+                .forEach { line -> analyzeLine(line, type) { emit(it) } }
         }
     }
 }
