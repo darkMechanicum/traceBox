@@ -7,7 +7,9 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.util.ClassUtil
+import com.intellij.psi.util.createSmartPointer
 
 
 sealed class TraceBoxEvent
@@ -57,13 +59,37 @@ sealed class TraceLine(val text: String) {
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match one of trace patterns: $text")
     }
 
-    abstract fun getPsiElement(project: Project): PsiElement?
+    // ------ Psi element ------
+    @Volatile
+    var pointer: SmartPsiElementPointer<out PsiElement>? = null
+
+    fun getPsiElementCached(project: Project) =
+        getSmartPsiElementPointerCached(project)?.element
+    fun getSmartPsiElementPointerCached(project: Project) =
+        pointer ?: getSmartPsiElementPointer(project)?.also { pointer = it }
+    abstract fun getSmartPsiElementPointer(project: Project): SmartPsiElementPointer<out PsiElement>?
+
+    // ------ Navigatable ------
+    data class CachedNavigatable(val usedPsiElement: PsiElement, val navigatable: Navigatable)
+    @Volatile
+    var navigatable: CachedNavigatable? = null
     abstract fun getNavigatable(
         project: Project,
         psiElement: PsiElement
     ): Navigatable?
+    fun getNavigatableCached(project: Project): Navigatable? {
+        val usedNavigatable = navigatable
+        val psiElement = getPsiElementCached(project)
+        return if (usedNavigatable != null && usedNavigatable.usedPsiElement == psiElement) {
+            usedNavigatable.navigatable
+        } else if (psiElement != null) {
+            getNavigatable(project, psiElement)?.also {
+                // cache it
+                navigatable = CachedNavigatable(psiElement, it)
+            }
+        } else null
+    }
 
-    fun getNavigatable(project: Project) = getPsiElement(project)?.let { getNavigatable(project, it) }
 }
 
 class FirstTraceLine private constructor(
@@ -87,7 +113,8 @@ class FirstTraceLine private constructor(
                 ?.takeIf { it.isNotBlank() }
     }
 
-    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(exception)
+    override fun getSmartPsiElementPointer(project: Project) =
+        project.tryFindPsiFileFor(exception)?.createSmartPointer(project)
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
@@ -111,7 +138,9 @@ class CausedByTraceLine private constructor(
         causeText = if (match.groupValues.size > 2) match.groupValues[2].removePrefix(":") else null
     }
 
-    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(causeException)
+    override fun getSmartPsiElementPointer(project: Project) = project
+        .tryFindPsiFileFor(causeException)
+        ?.createSmartPointer(project)
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
@@ -145,7 +174,9 @@ class AtTraceLine private constructor(
         methodName.substring(0..fqnEndIndex)
     }
 
-    override fun getPsiElement(project: Project) = project.tryFindPsiFileFor(fqn)
+    override fun getSmartPsiElementPointer(project: Project) = project
+        .tryFindPsiFileFor(fqn)
+        ?.createSmartPointer(project)
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))

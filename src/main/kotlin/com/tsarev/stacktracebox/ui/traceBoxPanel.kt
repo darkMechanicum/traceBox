@@ -122,11 +122,11 @@ class TraceBoxPanel(
 
     override fun getData(dataId: String) = when {
         CommonDataKeys.NAVIGATABLE.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getNavigatable(project)
+            myTree.selectedNode?.managedLine?.getNavigatableCached(project)
         CommonDataKeys.VIRTUAL_FILE.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiElement(project)?.containingFile?.virtualFile
+            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
         CommonDataKeys.VIRTUAL_FILE_ARRAY.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiElement(project)?.containingFile?.virtualFile
+            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
                 ?.let { arrayOf(it) } ?: VirtualFile.EMPTY_ARRAY
         else -> super.getData(dataId)
     }
