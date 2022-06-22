@@ -25,7 +25,7 @@ class FilteredTraceEvents(
     val traceFlow = flow<TraceTraceBoxEvent> {
         listenersRegistrar.listenersFlow.collect { unfilteredFlow ->
             // TODO Add timeout to prevent leaking coroutines.
-            myScope.launch collectingProcessLogs@ {
+            myScope.launch collectingProcessLogs@{
                 unfilteredFlow.filterStackTraces()
                     .collect {
                         when (it) {
