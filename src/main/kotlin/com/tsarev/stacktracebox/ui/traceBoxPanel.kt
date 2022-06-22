@@ -1,12 +1,12 @@
 package com.tsarev.stacktracebox.ui
 
-import com.intellij.icons.AllIcons
-import com.intellij.ide.util.treeView.NodeDescriptor
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
-import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
@@ -19,8 +19,6 @@ import com.intellij.ui.treeStructure.Tree
 import com.tsarev.stacktracebox.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
-import java.awt.datatransfer.StringSelection
-import javax.swing.tree.DefaultMutableTreeNode
 
 /**
  * Main Tracebox tool window panel.
@@ -55,43 +53,26 @@ class TraceBoxPanel(
         )
     )
 
-    private val myCopyToClipboardAction = object : AnAction(
-        "Copy",
-        "Copies current trace to clipboard",
-        AllIcons.Actions.Copy
-    ) {
-        override fun actionPerformed(e: AnActionEvent) {
-            val text = myTree.selectedNode?.value?.text
-            if (text != null) {
-                CopyPasteManager.getInstance().setContents(StringSelection(text))
-            }
-        }
-    }
-
-    private val myContextActionGroup: DefaultActionGroup = DefaultActionGroup(
-        "TraceBoxContextActionGroup",
-        listOf(
-            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE),
-            myCopyToClipboardAction
-        )
-    )
-
     private val myToolbar = ActionToolbarImpl(
         "TraceBoxToolbar",
         myToolbarActionGroup,
         false
     )
 
-    private val myTree = Tree().apply {
-        isRootVisible = false
-        model = AsyncTreeModel(myStructureTreeModel, project)
-        myAutoScrollToSource.install(this)
-        PopupHandler.installPopupMenu(
-            this,
-            myContextActionGroup,
-            "TraceBoxPopupMenu",
+    private val myTree = Tree()
+
+    private val myCopyToClipboardAction = CopyTraceToClipboardAction(myTree)
+
+    private val myAnalyzeTraceAction = AnalyzeTraceAction(myTree)
+
+    private val myContextActionGroup: DefaultActionGroup = DefaultActionGroup(
+        "TraceBoxContextActionGroup",
+        listOf(
+            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE),
+            myCopyToClipboardAction,
+            myAnalyzeTraceAction
         )
-    }
+    )
 
     private val myListenerRegistrar = project.service<ProcessListenersRegistrar>()
 
@@ -124,6 +105,18 @@ class TraceBoxPanel(
                 reloadTraces()
             }
         }
+
+        // Init tree
+        myTree.apply {
+            isRootVisible = false
+            model = AsyncTreeModel(myStructureTreeModel, project)
+            myAutoScrollToSource.install(this)
+            PopupHandler.installPopupMenu(
+                this,
+                myContextActionGroup,
+                "TraceBoxPopupMenu",
+            )
+        }
     }
 
     /**
@@ -150,15 +143,4 @@ class TraceBoxPanel(
 
         else -> super.getData(dataId)
     }
-
-    private val Tree.selectedNode: BaseTraceNode?
-        get() = selectionPath
-            ?.lastPathComponent
-            ?.tryCast<DefaultMutableTreeNode>()
-            ?.userObject
-            ?.tryCast<NodeDescriptor<*>>()
-            ?.element
-            ?.tryCast<BaseTraceNode>()
-
-    private inline fun <reified T> Any?.tryCast() = this as? T
 }
