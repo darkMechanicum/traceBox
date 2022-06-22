@@ -14,7 +14,6 @@ import com.intellij.psi.SmartPsiElementPointer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.sync.Mutex
 
 
 @Service
@@ -37,16 +36,18 @@ class NavigationCalculationService(
 
     private val application = ApplicationManager.getApplication()
 
-    private val dumbModeSemaphore = Mutex(true)
+    @Volatile
+    private var indexAvailableDeferred: CompletableDeferred<Unit>? = CompletableDeferred()
 
     override fun enteredDumbMode() {
-        runBlocking {
-            dumbModeSemaphore.tryLock()
-        }
+        indexAvailableDeferred = CompletableDeferred()
     }
 
-    override fun exitDumbMode() = runBlocking {
-        dumbModeSemaphore.unlock()
+    override fun exitDumbMode() {
+        runBlocking {
+            indexAvailableDeferred?.complete(Unit)
+            indexAvailableDeferred = null
+        }
     }
 
     fun <T : TraceBoxEvent> scheduleCalculateNavigation(value: T) {
@@ -73,7 +74,7 @@ class NavigationCalculationService(
         myScope.launch {
             needToCalculateNavigation.collect {
                 try {
-                    dumbModeSemaphore.lock()
+                    indexAvailableDeferred?.await()
                     application.runReadAction {
                         it.recalculate(project)
                         runBlocking {
@@ -82,8 +83,6 @@ class NavigationCalculationService(
                     }
                 } catch (ex: Throwable) {
                     ex.printStackTrace()
-                } finally {
-                    dumbModeSemaphore.unlock()
                 }
             }
         }

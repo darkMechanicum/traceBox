@@ -2,10 +2,10 @@ package com.tsarev.stacktracebox
 
 import com.intellij.ide.util.PsiNavigationSupport
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.ClassUtil
 import com.intellij.psi.util.createSmartPointer
 
@@ -88,7 +88,7 @@ class FirstTraceLine private constructor(
     }
 
     override fun getSmartPsiElementPointer(project: Project) =
-        project.tryFindPsiFileFor(exception)?.createSmartPointer(project)
+        project.tryFindPsiElementFor(exception)?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
@@ -114,7 +114,7 @@ class CausedByTraceLine private constructor(
     }
 
     override fun getSmartPsiElementPointer(project: Project) = project
-        .tryFindPsiFileFor(causeException)
+        .tryFindPsiElementFor(causeException)
         ?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
@@ -151,7 +151,7 @@ class AtTraceLine private constructor(
     }
 
     override fun getSmartPsiElementPointer(project: Project) = project
-        .tryFindPsiFileFor(fqn)
+        .tryFindPsiElementFor(fqn)
         ?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
@@ -159,13 +159,17 @@ class AtTraceLine private constructor(
         .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))
 
     private fun getOffset(project: Project, psiElement: PsiElement) = position?.let {
-        PsiDocumentManager.getInstance(project)
+        val document = PsiDocumentManager.getInstance(project)
             .getDocument(psiElement.containingFile)
-            ?.getLineStartOffset(it - 1)
+        val lineCount = document?.lineCount ?: 0
+        if (it - 1 > lineCount) 0 else document?.getLineStartOffset(it - 1)
     } ?: 0
 }
 
-fun Project.tryFindPsiFileFor(fqn: String): PsiClass? {
+fun Project.tryFindPsiElementFor(fqn: String): PsiElement? {
     val psiManager = PsiManager.getInstance(this)
-    return ClassUtil.findPsiClass(psiManager, fqn)
+    val findPsiClass = ClassUtil.findPsiClass(
+        psiManager, fqn, null, false, GlobalSearchScope.everythingScope(this)
+    )
+    return findPsiClass?.navigationElement
 }

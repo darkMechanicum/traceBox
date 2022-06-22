@@ -13,6 +13,7 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.AutoScrollToSourceHandler
 import com.intellij.ui.PopupHandler
+import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
@@ -116,7 +117,7 @@ class TraceBoxPanel(
     }
 
     init {
-        setContent(myTree)
+        setContent(ScrollPaneFactory.createScrollPane(myTree))
         myToolbar.targetComponent = myTree
         toolbar = myToolbar
         reloadTraces()
