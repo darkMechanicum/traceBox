@@ -88,7 +88,7 @@ class NavigationCalculationService(
             }
         }
 
-        project.messageBus.connect().subscribe(DumbService.DUMB_MODE, this)
+        project.messageBus.connect(this).subscribe(DumbService.DUMB_MODE, this)
     }
 
     override fun dispose() = myScope.cancel()
