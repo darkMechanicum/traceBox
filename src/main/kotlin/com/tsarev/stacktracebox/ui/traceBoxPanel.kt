@@ -29,15 +29,16 @@ import javax.swing.tree.DefaultMutableTreeNode
 /**
  * Main Tracebox tool window panel.
  */
+@OptIn(FlowPreview::class)
 class TraceBoxPanel(
     private val project: Project
 ) : SimpleToolWindowPanel(true), Disposable {
 
     private val application = ApplicationManager.getApplication()
 
-    private val stateHolder = project.service<TraceBoxStateManager>()
+    private val myStateManager = project.service<TraceBoxStateManager>()
 
-    private val myTreeStructure = CollectTracesTreeStructure(project, stateHolder)
+    private val myTreeStructure = CollectTracesTreeStructure(project, myStateManager)
 
     private val myStructureTreeModel = StructureTreeModel(myTreeStructure, project)
 
@@ -58,7 +59,7 @@ class TraceBoxPanel(
         )
     )
 
-    private val copyToClipboardAction = object : AnAction(
+    private val myCopyToClipboardAction = object : AnAction(
         "Copy",
         "Copies current trace to clipboard",
         AllIcons.Actions.Copy
@@ -75,11 +76,15 @@ class TraceBoxPanel(
         "TraceBoxContextActionGroup",
         listOf(
             ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE),
-            copyToClipboardAction
+            myCopyToClipboardAction
         )
     )
 
-    private val myToolbar = ActionToolbarImpl("TraceBoxToolbar", myToolbarActionGroup, false)
+    private val myToolbar = ActionToolbarImpl(
+        "TraceBoxToolbar",
+        myToolbarActionGroup,
+        false
+    )
 
     private val myTree = Tree().apply {
         isRootVisible = false
@@ -92,42 +97,46 @@ class TraceBoxPanel(
         )
     }
 
-    private val listenerRegistrar = project.service<ProcessListenersRegistrar>()
+    private val myListenerRegistrar = project.service<ProcessListenersRegistrar>()
 
-    @OptIn(DelicateCoroutinesApi::class, FlowPreview::class)
-    private val onNewTracesJob = GlobalScope.launch {
-        coroutineScope {
-            listenerRegistrar.listenersFlow.collect { flow ->
-                launch collectingProcessLogs@{
-                    flow.debounce(500).collect {
-                        reloadTraces()
-                    }
-                }
-            }
-        }
-    }
+    private val myScope = CoroutineScope(Job())
 
-    private val navigation = project.service<NavigationCalculationService>()
-
-    @OptIn(DelicateCoroutinesApi::class, FlowPreview::class)
-    private val onNavigationRecalcJob = GlobalScope.launch {
-        navigation.recalculatedFlow.debounce(500).collect {
-            reloadTraces()
-        }
-    }
+    private val myNavigation = project.service<NavigationCalculationService>()
 
     init {
         setContent(ScrollPaneFactory.createScrollPane(myTree))
         myToolbar.targetComponent = myTree
         toolbar = myToolbar
         reloadTraces()
+
+        // Watch on new traces to reload.
+        myScope.launch(Job()) {
+            coroutineScope {
+                myListenerRegistrar.listenersFlow.collect { flow ->
+                    launch collectingProcessLogs@{
+                        flow.debounce(500).collect {
+                            reloadTraces()
+                        }
+                    }
+                }
+            }
+        }
+
+        // Watch on navigation info to reload.
+        myScope.launch(Job()) {
+            myNavigation.recalculatedFlow.debounce(500).collect {
+                reloadTraces()
+            }
+        }
     }
 
     override fun dispose() {
-        onNewTracesJob.cancel()
-        onNavigationRecalcJob.cancel()
+        myScope.cancel()
     }
 
+    /**
+     * Invalidate tree and reload traces from [myStateManager].
+     */
     fun reloadTraces() {
         application.invokeLater {
             myStructureTreeModel.invalidate()
@@ -135,6 +144,7 @@ class TraceBoxPanel(
     }
 
     override fun getData(dataId: String) = when {
+        // Support for navigation logic.
         CommonDataKeys.NAVIGATABLE.`is`(dataId) -> {
             myTree.selectedNode?.managedLine?.navigatable
         }

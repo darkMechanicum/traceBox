@@ -6,6 +6,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import com.tsarev.stacktracebox.*
 
+
+/**
+ * Base tree node, that contains [TraceTraceBoxEvent] event.
+ */
 sealed class BaseTraceNode(
     project: Project,
     value: TraceTraceBoxEvent
@@ -14,10 +18,13 @@ sealed class BaseTraceNode(
     open val managedLine: TraceLine? get() = null
 
     override fun getChildren(): MutableCollection<out AbstractTreeNode<*>> {
-        return mutableListOf<ExpandableTraceNode>()
+        return mutableListOf<WholeTraceNode>()
     }
 }
 
+/**
+ * Dummy event to create nodes without event.
+ */
 val rootDummy = TraceTraceBoxEvent(
     FirstTraceLine.parse("Exception"),
     emptyList(),
@@ -26,13 +33,20 @@ val rootDummy = TraceTraceBoxEvent(
     emptyMap()
 )
 
+/**
+ * Dummy root trace node.
+ */
 class RootTraceNode(project: Project) : BaseTraceNode(project, rootDummy) {
     override fun update(presentation: PresentationData) {
         // no-op
     }
 }
 
-class ExpandedTraceNode(
+/**
+ * Node, that represent single trace element.
+ * It can be "Caused by" element, or just trace line.
+ */
+class TraceLineNode(
     project: Project,
     value: TraceTraceBoxEvent,
     val traceLineIndex: Int
@@ -72,21 +86,24 @@ class ExpandedTraceNode(
         this === other ||
                 javaClass == other?.javaClass &&
                 super.equals(other) &&
-                other is ExpandedTraceNode &&
+                other is TraceLineNode &&
                 traceLineIndex == other.traceLineIndex
 
     override fun hashCode() = 31 * super.hashCode() + traceLineIndex
 }
 
-class ExpandableTraceNode(
+/**
+ * Tree node that represents whole stack trace.
+ */
+class WholeTraceNode(
     project: Project,
     value: TraceTraceBoxEvent,
 ) : BaseTraceNode(project, value) {
 
     override val managedLine get() = value.firstLine
 
-    override fun getChildren(): MutableCollection<ExpandedTraceNode> =
-        List(value.otherLines.size) { index -> ExpandedTraceNode(project!!, value, index) }
+    override fun getChildren(): MutableCollection<TraceLineNode> =
+        List(value.otherLines.size) { index -> TraceLineNode(project!!, value, index) }
             .toMutableList()
 
     override fun update(presentation: PresentationData) = with(presentation) {

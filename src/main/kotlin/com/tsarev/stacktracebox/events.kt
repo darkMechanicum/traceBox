@@ -44,6 +44,10 @@ object ProcessStartTraceBoxEvent : TraceBoxEvent()
  */
 object ProcessEndTraceBoxEvent : TraceBoxEvent()
 
+/**
+ * Represents single trace line with possibly cached information
+ * about its navigation.
+ */
 sealed class TraceLine(
     val text: String,
 ) : NavigationDataProvider, NavigationAware {
