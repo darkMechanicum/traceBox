@@ -17,7 +17,7 @@ object ClearTracesAction : AnAction(
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        project.service<TraceBoxStateHolder>().traceEventsQueue.clear()
+        project.service<TraceBoxStateManager>().traceEventsQueue.clear()
         TraceBoxToolWindowFactory.reloadAll(project)
     }
 }

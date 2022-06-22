@@ -6,6 +6,7 @@ import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import kotlinx.coroutines.*
@@ -17,6 +18,12 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.EmptyCoroutineContext
 
 
+private const val lookFrequency = 500L
+
+private const val listenersReplay = 10
+
+private const val eventsReplay = 500
+
 /**
  * Looks for currently running processes via [ExecutionManager.getRunningProcesses]
  * every [lookFrequency] ms and register listener for each found one.
@@ -26,9 +33,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 @Service
 class ProcessListenersRegistrar(
     project: Project
-) : Disposable {
-
-    private val lookFrequency = 500L
+) : Disposable, DumbAware {
 
     private val executionManager = ExecutionManager.getInstance(project)
 
@@ -55,7 +60,7 @@ class ProcessListenersRegistrar(
                 }
             delay(lookFrequency)
         }
-    }.shareIn(listenersFlowScope, SharingStarted.Eagerly)
+    }.shareIn(listenersFlowScope, SharingStarted.Eagerly, listenersReplay)
 
     override fun dispose() {
         listenersFlowScope.cancel()
@@ -76,7 +81,7 @@ class LogProcessListener(
     private val onTerminate: () -> Unit,
 ) : ProcessAdapter() {
 
-    private val eventsFlow: MutableSharedFlow<TraceBoxEvent> = MutableSharedFlow()
+    private val eventsFlow: MutableSharedFlow<TraceBoxEvent> = MutableSharedFlow(replay = eventsReplay)
 
     private val listenerScope = CoroutineScope(Job(parentJob))
 

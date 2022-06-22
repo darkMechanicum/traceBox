@@ -1,15 +1,16 @@
 package com.tsarev.stacktracebox
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
@@ -17,13 +18,17 @@ import java.util.concurrent.ConcurrentLinkedQueue
  */
 @Service
 @State(name = "com.tsarev.tracebox.traces")
-class TraceBoxStateHolder(
+class TraceBoxStateManager(
     private val project: Project
-) : PersistentStateComponent<TraceBoxStateHolder.State>, Disposable {
+) : PersistentStateComponent<TraceBoxStateManager.State>, Disposable {
 
     val traceEventsQueue = ConcurrentLinkedQueue<TraceTraceBoxEvent>()
 
-    private val collectorsScope = CoroutineScope(Job())
+    private val stateHolderScope = CoroutineScope(Job())
+
+    private val navigation = project.service<NavigationCalculationService>()
+
+    private val filteredTraces = project.service<FilteredTraceEvents>()
 
     // TODO Rework state persisting - there should be way not to
     // TODO duplicate [TraceTraceBoxEvent] class.
@@ -40,56 +45,24 @@ class TraceBoxStateHolder(
         storedExceptions = traces
     }
 
-    override fun loadState(state: State): Unit = with(traceEventsQueue) {
-        clear()
-        state.storedExceptions?.forEach {
-            add(
-                TraceTraceBoxEvent(
-                    firstLine = FirstTraceLine.parse(it.firstLine!!),
-                    otherLines = it.otherLines?.map { TraceLine.parse(it) } ?: emptyList(),
-                    type = it.type!!,
-                    time = it.time!!,
-                    other = it.other ?: emptyMap(),
-                )
+    override fun loadState(state: State) {
+        traceEventsQueue.clear()
+        state.storedExceptions?.mapTo(traceEventsQueue) {
+            TraceTraceBoxEvent(
+                firstLine = FirstTraceLine.parse(it.firstLine!!),
+                otherLines = it.otherLines?.map { TraceLine.parse(it) } ?: emptyList(),
+                type = it.type!!,
+                time = it.time!!,
+                other = it.other ?: emptyMap(),
             )
         }
-    }.also {
+        traceEventsQueue.forEach { navigation.scheduleCalculateNavigation(it) }
         TraceBoxToolWindowFactory.reloadAll(project)
-    } ?: Unit
+    }
 
     override fun initializeComponent() {
-        val listenersRegistrar = project.service<ProcessListenersRegistrar>()
-        collectorsScope.launch { listenersRegistrar.doCollectLogs() }
-    }
-
-    private fun TraceBoxEvent.warmUpNavigation() = apply {
-        if (this !is TraceTraceBoxEvent) return@apply
-        ApplicationManager.getApplication().runReadAction {
-            firstLine.getPsiElementCached(project)
-            firstLine.getNavigatableCached(project)
-            otherLines.forEach {
-                it.getPsiElementCached(project)
-                it.getNavigatableCached(project)
-            }
-        }
-    }
-
-    private suspend fun ProcessListenersRegistrar.doCollectLogs() {
-        listenersFlow.collect { flow ->
-            coroutineScope {
-                launch collectingProcessLogs@{
-                    flow.filterStackTraces()
-                        .map { it.warmUpNavigation() }
-                        .collect {
-                            when (it) {
-                                is ProcessEndTraceBoxEvent -> this@collectingProcessLogs.cancel()
-                                is TraceTraceBoxEvent -> traceEventsQueue.add(it)
-                                is TextTraceBoxEvent -> Unit // ignore
-                                is ProcessStartTraceBoxEvent -> Unit // ignore
-                            }
-                        }
-                }
-            }
+        stateHolderScope.launch {
+            filteredTraces.traceFlow.collect { traceEventsQueue.add(it) }
         }
     }
 
@@ -106,7 +79,7 @@ class TraceBoxStateHolder(
     }
 
     override fun dispose() {
-        collectorsScope.cancel()
+        stateHolderScope.cancel()
     }
 
 }

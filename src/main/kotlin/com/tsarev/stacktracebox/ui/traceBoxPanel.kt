@@ -17,8 +17,9 @@ import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
 import com.tsarev.stacktracebox.ClearTracesAction
+import com.tsarev.stacktracebox.NavigationCalculationService
 import com.tsarev.stacktracebox.ProcessListenersRegistrar
-import com.tsarev.stacktracebox.TraceBoxStateHolder
+import com.tsarev.stacktracebox.TraceBoxStateManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 import java.awt.datatransfer.StringSelection
@@ -33,7 +34,7 @@ class TraceBoxPanel(
 
     private val application = ApplicationManager.getApplication()
 
-    private val stateHolder = project.service<TraceBoxStateHolder>()
+    private val stateHolder = project.service<TraceBoxStateManager>()
 
     private val myTreeStructure = CollectTracesTreeStructure(project, stateHolder)
 
@@ -93,7 +94,7 @@ class TraceBoxPanel(
     private val listenerRegistrar = project.service<ProcessListenersRegistrar>()
 
     @OptIn(DelicateCoroutinesApi::class, FlowPreview::class)
-    private val job = GlobalScope.launch {
+    private val onNewTracesJob = GlobalScope.launch {
         coroutineScope {
             listenerRegistrar.listenersFlow.collect { flow ->
                 launch collectingProcessLogs@{
@@ -105,6 +106,15 @@ class TraceBoxPanel(
         }
     }
 
+    private val navigation = project.service<NavigationCalculationService>()
+
+    @OptIn(DelicateCoroutinesApi::class, FlowPreview::class)
+    private val onNavigationRecalcJob = GlobalScope.launch {
+        navigation.recalculatedFlow.debounce(500).collect {
+            reloadTraces()
+        }
+    }
+
     init {
         setContent(myTree)
         myToolbar.targetComponent = myTree
@@ -112,7 +122,10 @@ class TraceBoxPanel(
         reloadTraces()
     }
 
-    override fun dispose() = job.cancel()
+    override fun dispose() {
+        onNewTracesJob.cancel()
+        onNavigationRecalcJob.cancel()
+    }
 
     fun reloadTraces() {
         application.invokeLater {
@@ -121,23 +134,28 @@ class TraceBoxPanel(
     }
 
     override fun getData(dataId: String) = when {
-        CommonDataKeys.NAVIGATABLE.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getNavigatableCached(project)
+        CommonDataKeys.NAVIGATABLE.`is`(dataId) -> {
+            myTree.selectedNode?.managedLine?.navigatable
+        }
+
         CommonDataKeys.VIRTUAL_FILE.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
+            myTree.selectedNode?.managedLine?.element?.containingFile?.virtualFile
+
         CommonDataKeys.VIRTUAL_FILE_ARRAY.`is`(dataId) ->
-            myTree.selectedNode?.managedLine?.getPsiElementCached(project)?.containingFile?.virtualFile
+            myTree.selectedNode?.managedLine?.element?.containingFile?.virtualFile
                 ?.let { arrayOf(it) } ?: VirtualFile.EMPTY_ARRAY
+
         else -> super.getData(dataId)
     }
 
-    private val Tree.selectedNode: BaseTraceNode? get() = selectionPath
-        ?.lastPathComponent
-        ?.tryCast<DefaultMutableTreeNode>()
-        ?.userObject
-        ?.tryCast<NodeDescriptor<*>>()
-        ?.element
-        ?.tryCast<BaseTraceNode>()
+    private val Tree.selectedNode: BaseTraceNode?
+        get() = selectionPath
+            ?.lastPathComponent
+            ?.tryCast<DefaultMutableTreeNode>()
+            ?.userObject
+            ?.tryCast<NodeDescriptor<*>>()
+            ?.element
+            ?.tryCast<BaseTraceNode>()
 
     private inline fun <reified T> Any?.tryCast() = this as? T
 }

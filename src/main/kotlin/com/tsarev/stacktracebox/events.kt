@@ -2,12 +2,10 @@ package com.tsarev.stacktracebox
 
 import com.intellij.ide.util.PsiNavigationSupport
 import com.intellij.openapi.project.Project
-import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
-import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.util.ClassUtil
 import com.intellij.psi.util.createSmartPointer
 
@@ -33,6 +31,7 @@ data class TraceTraceBoxEvent(
     val other: Map<String, String>,
 ) : TraceBoxEvent() {
     val text by lazy { "${firstLine.text}\n${otherLines.joinToString(separator = "\n") { it.text }}" }
+    val allLines get() = otherLines + firstLine
 }
 
 /**
@@ -45,7 +44,14 @@ object ProcessStartTraceBoxEvent : TraceBoxEvent()
  */
 object ProcessEndTraceBoxEvent : TraceBoxEvent()
 
-sealed class TraceLine(val text: String) {
+sealed class TraceLine(
+    val text: String,
+) : NavigationDataProvider, NavigationAware {
+
+    val navigationData: NavigationLineCache = NavigationLineCache(this)
+    override val element get() = navigationData.element
+    override val navigatable get() = navigationData.navigatable
+
     companion object {
         fun parseOrNull(text: String) =
             FirstTraceLine.parseOrNull(text)
@@ -58,38 +64,6 @@ sealed class TraceLine(val text: String) {
 
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match one of trace patterns: $text")
     }
-
-    // ------ Psi element ------
-    @Volatile
-    var pointer: SmartPsiElementPointer<out PsiElement>? = null
-
-    fun getPsiElementCached(project: Project) =
-        getSmartPsiElementPointerCached(project)?.element
-    fun getSmartPsiElementPointerCached(project: Project) =
-        pointer ?: getSmartPsiElementPointer(project)?.also { pointer = it }
-    abstract fun getSmartPsiElementPointer(project: Project): SmartPsiElementPointer<out PsiElement>?
-
-    // ------ Navigatable ------
-    data class CachedNavigatable(val usedPsiElement: PsiElement, val navigatable: Navigatable)
-    @Volatile
-    var navigatable: CachedNavigatable? = null
-    abstract fun getNavigatable(
-        project: Project,
-        psiElement: PsiElement
-    ): Navigatable?
-    fun getNavigatableCached(project: Project): Navigatable? {
-        val usedNavigatable = navigatable
-        val psiElement = getPsiElementCached(project)
-        return if (usedNavigatable != null && usedNavigatable.usedPsiElement == psiElement) {
-            usedNavigatable.navigatable
-        } else if (psiElement != null) {
-            getNavigatable(project, psiElement)?.also {
-                // cache it
-                navigatable = CachedNavigatable(psiElement, it)
-            }
-        } else null
-    }
-
 }
 
 class FirstTraceLine private constructor(
@@ -115,6 +89,7 @@ class FirstTraceLine private constructor(
 
     override fun getSmartPsiElementPointer(project: Project) =
         project.tryFindPsiFileFor(exception)?.createSmartPointer(project)
+
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
@@ -141,6 +116,7 @@ class CausedByTraceLine private constructor(
     override fun getSmartPsiElementPointer(project: Project) = project
         .tryFindPsiFileFor(causeException)
         ?.createSmartPointer(project)
+
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
@@ -177,6 +153,7 @@ class AtTraceLine private constructor(
     override fun getSmartPsiElementPointer(project: Project) = project
         .tryFindPsiFileFor(fqn)
         ?.createSmartPointer(project)
+
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
         .getInstance()
         .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))
@@ -190,6 +167,5 @@ class AtTraceLine private constructor(
 
 fun Project.tryFindPsiFileFor(fqn: String): PsiClass? {
     val psiManager = PsiManager.getInstance(this)
-    val result = ClassUtil.findPsiClass(psiManager, fqn)
-    return result
+    return ClassUtil.findPsiClass(psiManager, fqn)
 }

@@ -3,11 +3,11 @@ package com.tsarev.stacktracebox.ui
 import com.intellij.ide.projectView.TreeStructureProvider
 import com.intellij.ide.util.treeView.AbstractTreeStructureBase
 import com.intellij.openapi.project.Project
-import com.tsarev.stacktracebox.TraceBoxStateHolder
+import com.tsarev.stacktracebox.TraceBoxStateManager
 
 class CollectTracesTreeStructure(
     private val project: Project,
-    private val stateHolder: TraceBoxStateHolder
+    private val stateHolder: TraceBoxStateManager
 ) : AbstractTreeStructureBase(project) {
 
     private val rootNode = RootTraceNode(project)
