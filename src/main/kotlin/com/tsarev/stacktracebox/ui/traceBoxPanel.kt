@@ -99,13 +99,6 @@ class TraceBoxPanel(
             }
         }
 
-        // Watch on navigation info to reload.
-        myScope.launch(Job()) {
-            myNavigation.recalculatedFlow.debounce(500).collect {
-                reloadTraces()
-            }
-        }
-
         // Init tree
         myTree.apply {
             isRootVisible = false
