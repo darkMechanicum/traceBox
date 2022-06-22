@@ -59,7 +59,7 @@ class NavigationCalculationService(
         }
     }
 
-    suspend fun NavigationLineCache.scheduleCalculateNavigation() {
+    private suspend fun NavigationLineCache.scheduleCalculateNavigation() {
         if (!isScheduledForRecalculation) {
             isScheduledForRecalculation = true
             needToCalculateNavigation.emit(this)
@@ -113,7 +113,7 @@ interface NavigationDataProvider {
     fun getNavigatable(
         project: Project,
         psiElement: PsiElement
-    ): Navigatable?
+    ): Navigatable
 }
 
 // TODO Add listening for PSI Change.
@@ -147,7 +147,7 @@ class NavigationLineCache(
         val usedNavigatable = cachedNavigatable
         val psiElement = getSmartPsiElementPointerCached(project)?.element
         if (psiElement != null && (usedNavigatable == null || usedNavigatable.usedPsiElement != psiElement)) {
-            usedProvider.getNavigatable(project, psiElement)?.also {
+            usedProvider.getNavigatable(project, psiElement).also {
                 cachedNavigatable = CachedNavigatable(psiElement, it)
             }
         }
