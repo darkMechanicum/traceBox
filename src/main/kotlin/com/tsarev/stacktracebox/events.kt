@@ -18,6 +18,7 @@ sealed class TraceBoxEvent
 data class TextTraceBoxEvent(
     val text: String,
     val type: String,
+    val processName: String,
 ) : TraceBoxEvent()
 
 /**

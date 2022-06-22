@@ -1,13 +1,16 @@
 package com.tsarev.stacktracebox
 
 import com.intellij.execution.ExecutionManager
+import com.intellij.execution.impl.ExecutionManagerImpl
 import com.intellij.execution.process.ProcessAdapter
 import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessHandler
+import com.intellij.execution.ui.RunContentDescriptor
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
+import com.intellij.util.SmartList
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +25,8 @@ private const val listenersReplay = 10
 
 private const val eventsReplay = 500
 
+typealias ProcessHandlerEx = Pair<RunContentDescriptor, ProcessHandler>
+
 /**
  * Looks for currently running processes via [ExecutionManager.getRunningProcesses]
  * every [lookFrequency] ms and register listener for each found one.
@@ -30,10 +35,8 @@ private const val eventsReplay = 500
  */
 @Service
 class ProcessListenersRegistrar(
-    project: Project
+    private val project: Project
 ) : ServiceWithScope(), DumbAware {
-
-    private val executionManager = ExecutionManager.getInstance(project)
 
     private val managedProcesses = ConcurrentHashMap<ProcessHandler, Boolean>()
 
@@ -41,13 +44,13 @@ class ProcessListenersRegistrar(
     // independently of their subscribing and listening.
     val listenersFlow = flow {
         while (true) {
-            val runningProcesses = executionManager.getRunningProcesses()
+            val runningProcesses = getRunningProcesses()
             runningProcesses
-                .filter { !it.isProcessTerminated }
-                .forEach { ph ->
+                .filter { !it.second.isProcessTerminated }
+                .forEach { (runDesc, ph) ->
                     if (!managedProcesses.containsKey(ph)) {
                         managedProcesses[ph] = true
-                        val listener = LogProcessListener(ph, currentCoroutineContext().job) {
+                        val listener = LogProcessListener(runDesc, ph, currentCoroutineContext().job) {
                             managedProcesses.remove(ph)
                         }
                         ph.addProcessListener(listener, this@ProcessListenersRegistrar)
@@ -57,6 +60,19 @@ class ProcessListenersRegistrar(
             delay(lookFrequency)
         }
     }.shareIn(myScope, SharingStarted.Eagerly, listenersReplay)
+
+    val emptyProcessHandlers = arrayOf<ProcessHandlerEx>()
+    private fun getRunningProcesses(): Array<ProcessHandlerEx> {
+        var handlers: MutableList<ProcessHandlerEx>? = null
+        for (descriptor in ExecutionManagerImpl.getAllDescriptors(project)) {
+            val processHandler = descriptor.processHandler ?: continue
+            if (handlers == null) {
+                handlers = SmartList()
+            }
+            handlers.add(descriptor to processHandler)
+        }
+        return handlers?.toTypedArray() ?: emptyProcessHandlers
+    }
 
     override fun dispose() {
         super.dispose()
@@ -72,6 +88,7 @@ class ProcessListenersRegistrar(
  * after listened process is terminated.
  */
 class LogProcessListener(
+    private val runContentDescriptor: RunContentDescriptor,
     private val ph: ProcessHandler,
     parentJob: Job,
     private val onTerminate: () -> Unit,
@@ -97,6 +114,7 @@ class LogProcessListener(
         val textEvent = TextTraceBoxEvent(
             trimmedText,
             outputType.toString().intern(),
+            runContentDescriptor.displayName
         )
         eventsFlow.emit(textEvent)
     }.run { }

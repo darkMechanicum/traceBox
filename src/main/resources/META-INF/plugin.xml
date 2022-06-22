@@ -1,9 +1,10 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
-<idea-plugin>
+<idea-plugin package="com.tsarev.stacktracebox">
     <id>com.tsarev.stackTraceBox</id>
     <name>StackTraceBox</name>
     <vendor email="aleksandr.tsarev@jetbrains.com"
-            url="https://www.jetbrains.com">JetBrains</vendor>
+            url="https://www.jetbrains.com">JetBrains
+    </vendor>
     <description>
         A small plugin to view captured java stack traces from launched run configurations.
     </description>

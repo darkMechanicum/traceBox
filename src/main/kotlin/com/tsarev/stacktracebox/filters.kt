@@ -19,7 +19,7 @@ class FilteredTraceEvents(
     private val listenersRegistrar = project.service<ProcessListenersRegistrar>()
 
     @Suppress("RemoveExplicitTypeArguments")
-    val traceFlow = flow<TraceTraceBoxEvent> {
+    val traceFlow = channelFlow<TraceTraceBoxEvent> {
         listenersRegistrar.listenersFlow.collect { unfilteredFlow ->
             // TODO Add timeout to prevent leaking coroutines.
             myScope.launch collectingProcessLogs@{
@@ -27,7 +27,7 @@ class FilteredTraceEvents(
                     .collect {
                         when (it) {
                             is ProcessEndTraceBoxEvent -> this@collectingProcessLogs.cancel()
-                            is TraceTraceBoxEvent -> emit(it)
+                            is TraceTraceBoxEvent -> send(it)
                             is TextTraceBoxEvent, ProcessStartTraceBoxEvent -> Unit // ignore
                         }
                     }
@@ -60,7 +60,12 @@ fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
     fun aggregatorByType(type: String) = aggregators.computeIfAbsent(type) { ConcurrentLinkedQueue<TraceLine>() }
 
     // Line analyze and [TraceTraceBoxEvent] emission.
-    suspend fun analyzeLine(line: String, type: String, emit: suspend (TraceBoxEvent) -> Unit) {
+    suspend fun analyzeLine(
+        line: String,
+        type: String,
+        runDescName: String,
+        emit: suspend (TraceBoxEvent) -> Unit
+    ) {
         if (isRecordingByType[type] == true) {
             val parsedLine = TraceLine.parseNonFirstLineOrNull(line)
             if (parsedLine != null) {
@@ -78,11 +83,13 @@ fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
                             otherLines,
                             type,
                             System.currentTimeMillis(),
-                            emptyMap(),
+                            mapOf(
+                                runDescriptorNameProp to runDescName
+                            ),
                         )
                     )
                     // Try second time, in case it is first line of new exception.
-                    analyzeLine(line, type, emit)
+                    analyzeLine(line, type, runDescName, emit)
                 }
             }
         } else {
@@ -102,7 +109,7 @@ fun Flow<TraceBoxEvent>.filterStackTraces() = flow {
             val type = event.type
             event.text.split('\n')
                 .filter { it.isNotBlank() }
-                .forEach { line -> analyzeLine(line, type) { emit(it) } }
+                .forEach { line -> analyzeLine(line, type, event.processName) { emit(it) } }
         }
     }
 }

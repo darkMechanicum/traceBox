@@ -16,7 +16,10 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
-import com.tsarev.stacktracebox.*
+import com.tsarev.stacktracebox.ClearTracesAction
+import com.tsarev.stacktracebox.FilteredTraceEvents
+import com.tsarev.stacktracebox.ScopeAwareDisposable
+import com.tsarev.stacktracebox.TraceBoxStateManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 
@@ -32,26 +35,43 @@ class TraceBoxPanel(
 
     private val myStateManager = project.service<TraceBoxStateManager>()
 
-    private val myTreeStructure = CollectTracesTreeStructure(project, myStateManager)
+    private val myTreeStructure = CollectTracesTreeStructure(project, myStateManager, this)
 
     private val myStructureTreeModel = StructureTreeModel(myTreeStructure, project)
 
     private var myAutoScrollMode = true
 
     private val myAutoScrollToSource = object : AutoScrollToSourceHandler() {
+        init {
+            isAutoScrollMode = false
+        }
+
         override fun isAutoScrollMode() = myAutoScrollMode
         override fun setAutoScrollMode(state: Boolean) {
             myAutoScrollMode = state
         }
     }
 
-    private val myToolbarActionGroup = DefaultActionGroup(
-        "TraceBoxToolbarActionGroup",
-        listOf(
-            ClearTracesAction,
-            myAutoScrollToSource.createToggleAction()
-        )
+    private val availableGroupingCriteria = listOf(
+        GroupByFirstLine,
+        GroupByExceptionClass,
     )
+
+    private val groupingActions = availableGroupingCriteria
+        .map { it.createToggleAction { reloadTraces() } }
+
+    internal val myGrouping
+        get() = groupingActions
+            .filter { it.state }
+            .map { it.criteria }
+            .sortedBy { it.priority }
+
+    private val myToolbarActionGroup = DefaultActionGroup().apply {
+        add(ClearTracesAction)
+        add(myAutoScrollToSource.createToggleAction())
+        addSeparator()
+        addAll(groupingActions)
+    }
 
     private val myToolbar = ActionToolbarImpl(
         "TraceBoxToolbar",
@@ -65,20 +85,16 @@ class TraceBoxPanel(
 
     private val myAnalyzeTraceAction = AnalyzeTraceAction(myTree)
 
-    private val myContextActionGroup: DefaultActionGroup = DefaultActionGroup(
-        "TraceBoxContextActionGroup",
-        listOf(
-            ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE),
-            myCopyToClipboardAction,
-            myAnalyzeTraceAction
-        )
-    )
+    private val myContextActionGroup = DefaultActionGroup().apply {
+        add(ActionManager.getInstance().getAction(IdeActions.ACTION_EDIT_SOURCE))
+        addSeparator()
+        add(myCopyToClipboardAction)
+        add(myAnalyzeTraceAction)
+    }
 
-    private val myListenerRegistrar = project.service<ProcessListenersRegistrar>()
+    private val myFilteredTraces = project.service<FilteredTraceEvents>()
 
     override val myScope = CoroutineScope(Job())
-
-    private val myNavigation = project.service<NavigationCalculationService>()
 
     init {
         setContent(ScrollPaneFactory.createScrollPane(myTree))
@@ -89,12 +105,8 @@ class TraceBoxPanel(
         // Watch on new traces to reload.
         myScope.launch(Job()) {
             coroutineScope {
-                myListenerRegistrar.listenersFlow.collect { flow ->
-                    launch collectingProcessLogs@{
-                        flow.debounce(500).collect {
-                            reloadTraces()
-                        }
-                    }
+                myFilteredTraces.traceFlow.debounce(500).collect {
+                    reloadTraces()
                 }
             }
         }

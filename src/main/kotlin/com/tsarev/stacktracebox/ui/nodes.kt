@@ -25,7 +25,7 @@ sealed class BaseTraceNode(
 /**
  * Dummy event to create nodes without event.
  */
-val rootDummy = TraceTraceBoxEvent(
+val dummy = TraceTraceBoxEvent(
     FirstTraceLine.parse("Exception"),
     emptyList(),
     "dummy",
@@ -36,10 +36,27 @@ val rootDummy = TraceTraceBoxEvent(
 /**
  * Dummy root trace node.
  */
-class RootTraceNode(project: Project) : BaseTraceNode(project, rootDummy) {
+class RootTraceNode(project: Project) : BaseTraceNode(project, dummy) {
     override fun update(presentation: PresentationData) {
         // no-op
     }
+}
+
+/**
+ * Dummy root trace node.
+ */
+class GroupByNode(
+    project: Project,
+    val title: String,
+    val myChildren: MutableCollection<BaseTraceNode>
+) : BaseTraceNode(project, dummy) {
+    override fun getChildren() = myChildren
+    override fun update(presentation: PresentationData) {
+        presentation.addText(title, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+    }
+
+    override fun equals(other: Any?) = this === other
+    override fun hashCode() = title.hashCode()
 }
 
 /**
