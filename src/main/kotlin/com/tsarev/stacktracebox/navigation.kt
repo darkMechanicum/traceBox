@@ -1,6 +1,5 @@
 package com.tsarev.stacktracebox
 
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -11,17 +10,17 @@ import com.intellij.openapi.project.Project
 import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.SmartPsiElementPointer
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 
 @Service
 class NavigationCalculationService(
     private val project: Project
-) : Disposable, DumbModeListener, DumbAware {
-
-    private val myScope = CoroutineScope(Job())
+) : ServiceWithScope(), DumbModeListener, DumbAware {
 
     private val linesEventsWarmupReplay = 1000
 
@@ -89,8 +88,6 @@ class NavigationCalculationService(
 
         project.messageBus.connect(this).subscribe(DumbService.DUMB_MODE, this)
     }
-
-    override fun dispose() = myScope.cancel()
 }
 
 /**

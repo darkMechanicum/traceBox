@@ -2,7 +2,6 @@ package com.tsarev.stacktracebox.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.ide.util.treeView.NodeDescriptor
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
@@ -17,10 +16,7 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
-import com.tsarev.stacktracebox.ClearTracesAction
-import com.tsarev.stacktracebox.NavigationCalculationService
-import com.tsarev.stacktracebox.ProcessListenersRegistrar
-import com.tsarev.stacktracebox.TraceBoxStateManager
+import com.tsarev.stacktracebox.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 import java.awt.datatransfer.StringSelection
@@ -32,7 +28,7 @@ import javax.swing.tree.DefaultMutableTreeNode
 @OptIn(FlowPreview::class)
 class TraceBoxPanel(
     private val project: Project
-) : SimpleToolWindowPanel(true), Disposable {
+) : SimpleToolWindowPanel(true), ScopeAwareDisposable {
 
     private val application = ApplicationManager.getApplication()
 
@@ -99,7 +95,7 @@ class TraceBoxPanel(
 
     private val myListenerRegistrar = project.service<ProcessListenersRegistrar>()
 
-    private val myScope = CoroutineScope(Job())
+    override val myScope = CoroutineScope(Job())
 
     private val myNavigation = project.service<NavigationCalculationService>()
 
@@ -128,10 +124,6 @@ class TraceBoxPanel(
                 reloadTraces()
             }
         }
-    }
-
-    override fun dispose() {
-        myScope.cancel()
     }
 
     /**

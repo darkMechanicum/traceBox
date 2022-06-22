@@ -1,6 +1,5 @@
 package com.tsarev.stacktracebox
 
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -9,7 +8,6 @@ import com.intellij.openapi.project.Project
 import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -20,11 +18,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @State(name = "com.tsarev.tracebox.traces")
 class TraceBoxStateManager(
     private val project: Project
-) : PersistentStateComponent<TraceBoxStateManager.State>, Disposable {
+) : PersistentStateComponent<TraceBoxStateManager.State>, ScopeAwareDisposable {
 
     val traceEventsQueue = ConcurrentLinkedQueue<TraceTraceBoxEvent>()
 
-    private val stateHolderScope = CoroutineScope(Job())
+    override val myScope = CoroutineScope(Job())
 
     private val navigation = project.service<NavigationCalculationService>()
 
@@ -61,7 +59,7 @@ class TraceBoxStateManager(
     }
 
     override fun initializeComponent() {
-        stateHolderScope.launch {
+        myScope.launch {
             filteredTraces.traceFlow.collect { traceEventsQueue.add(it) }
         }
     }
@@ -77,9 +75,4 @@ class TraceBoxStateManager(
         var time: Long? = null
         var other: Map<String, String>? = null
     }
-
-    override fun dispose() {
-        stateHolderScope.cancel()
-    }
-
 }

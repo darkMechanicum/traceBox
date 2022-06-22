@@ -1,6 +1,5 @@
 package com.tsarev.stacktracebox
 
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -13,11 +12,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @Service
 class FilteredTraceEvents(
     project: Project
-) : Disposable {
+) : ServiceWithScope() {
 
     private val traceReplay = 500
-
-    private val myScope = CoroutineScope(Job())
 
     private val listenersRegistrar = project.service<ProcessListenersRegistrar>()
 
@@ -38,9 +35,6 @@ class FilteredTraceEvents(
         }
     }.shareIn(myScope, SharingStarted.Eagerly, traceReplay)
 
-    override fun dispose() {
-        myScope.cancel()
-    }
 }
 
 

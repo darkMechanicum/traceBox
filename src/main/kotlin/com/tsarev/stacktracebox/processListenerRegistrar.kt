@@ -4,7 +4,6 @@ import com.intellij.execution.ExecutionManager
 import com.intellij.execution.process.ProcessAdapter
 import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessHandler
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
@@ -15,7 +14,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.shareIn
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.EmptyCoroutineContext
 
 
 private const val lookFrequency = 500L
@@ -33,13 +31,11 @@ private const val eventsReplay = 500
 @Service
 class ProcessListenersRegistrar(
     project: Project
-) : Disposable, DumbAware {
+) : ServiceWithScope(), DumbAware {
 
     private val executionManager = ExecutionManager.getInstance(project)
 
     private val managedProcesses = ConcurrentHashMap<ProcessHandler, Boolean>()
-
-    private val listenersFlowScope = CoroutineScope(EmptyCoroutineContext)
 
     // This flow must be shared - since process executions can be created
     // independently of their subscribing and listening.
@@ -60,10 +56,10 @@ class ProcessListenersRegistrar(
                 }
             delay(lookFrequency)
         }
-    }.shareIn(listenersFlowScope, SharingStarted.Eagerly, listenersReplay)
+    }.shareIn(myScope, SharingStarted.Eagerly, listenersReplay)
 
     override fun dispose() {
-        listenersFlowScope.cancel()
+        super.dispose()
         managedProcesses.clear()
     }
 }
