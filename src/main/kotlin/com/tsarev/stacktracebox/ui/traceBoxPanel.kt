@@ -16,10 +16,7 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
-import com.tsarev.stacktracebox.ClearTracesAction
-import com.tsarev.stacktracebox.FilteredTraceEvents
-import com.tsarev.stacktracebox.ScopeAwareDisposable
-import com.tsarev.stacktracebox.TraceBoxStateManager
+import com.tsarev.stacktracebox.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
 
@@ -55,6 +52,7 @@ class TraceBoxPanel(
     private val availableGroupingCriteria = listOf(
         GroupByFirstLine,
         GroupByExceptionClass,
+        *GROUP_BY_CRITERIA_EP.getExtensions(project)
     )
 
     private val groupingActions = availableGroupingCriteria

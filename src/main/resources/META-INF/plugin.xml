@@ -16,4 +16,9 @@
                     anchor="bottom"
         />
     </extensions>
+
+    <extensionPoints>
+        <extensionPoint interface="com.tsarev.stacktracebox.ui.GroupByCriteria"
+                        name="GroupByCriteria"/>
+    </extensionPoints>
 </idea-plugin>
