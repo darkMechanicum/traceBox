@@ -11,51 +11,47 @@ import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.SmartPsiElementPointer
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicReference
 
 
 @Service
 class NavigationCalculationService(
-    private val project: Project
+        private val project: Project
 ) : ServiceWithScope(), DumbModeListener, DumbAware {
 
     private val linesEventsWarmupReplay = 1000
 
     private val needToCalculateNavigation =
-        MutableSharedFlow<NavigationLineCache>(replay = linesEventsWarmupReplay)
+            MutableSharedFlow<NavigationLineCache>(replay = linesEventsWarmupReplay)
 
     private val myRecalculatedFlow = MutableSharedFlow<Unit>()
-
-    val recalculatedFlow: Flow<Unit> get() = myRecalculatedFlow
 
     private val filteredTraces = project.service<FilteredTraceEvents>().traceFlow
 
     private val application = ApplicationManager.getApplication()
 
     @Volatile
-    private var indexAvailableDeferred: CompletableDeferred<Unit>? = CompletableDeferred()
+    private var indexAvailableDeferred: AtomicReference<CompletableDeferred<Unit>?> = AtomicReference(CompletableDeferred())
 
     override fun enteredDumbMode() {
-        indexAvailableDeferred = CompletableDeferred()
+        indexAvailableDeferred.compareAndSet(null, CompletableDeferred())
     }
 
     override fun exitDumbMode() {
         runBlocking {
-            indexAvailableDeferred?.complete(Unit)
-            indexAvailableDeferred = null
+            indexAvailableDeferred.get()?.complete(Unit)
+            indexAvailableDeferred.set(null)
         }
     }
 
-    fun <T : TraceBoxEvent> scheduleCalculateNavigation(value: T) {
-        runBlocking {
-            if (value is TraceTraceBoxEvent)
-                value.allLines.forEach {
-                    it.navigationData.scheduleCalculateNavigation()
-                }
-        }
+    suspend fun <T : TraceBoxEvent> scheduleCalculateNavigation(value: T) {
+        if (value is TraceTraceBoxEvent)
+            value.allLines.forEach {
+                it.navigationData.scheduleCalculateNavigation()
+            }
     }
 
     private suspend fun NavigationLineCache.scheduleCalculateNavigation() {
@@ -73,7 +69,7 @@ class NavigationCalculationService(
         myScope.launch {
             needToCalculateNavigation.collect {
                 try {
-                    indexAvailableDeferred?.await()
+                    indexAvailableDeferred.get()?.await()
                     application.runReadAction {
                         it.recalculate(project)
                         runBlocking {
@@ -104,12 +100,12 @@ interface NavigationAware {
 interface NavigationDataProvider {
 
     fun getSmartPsiElementPointer(
-        project: Project
+            project: Project
     ): SmartPsiElementPointer<out PsiElement>?
 
     fun getNavigatable(
-        project: Project,
-        psiElement: PsiElement
+            project: Project,
+            psiElement: PsiElement
     ): Navigatable
 }
 
@@ -118,7 +114,7 @@ interface NavigationDataProvider {
  * Grouped navigation cache logic.
  */
 class NavigationLineCache(
-    private val usedProvider: NavigationDataProvider,
+        private val usedProvider: NavigationDataProvider,
 ) : NavigationAware {
 
     @Volatile
@@ -135,11 +131,12 @@ class NavigationLineCache(
     override val navigatable: Navigatable? get() = cachedNavigatable?.navigatable
 
     private fun getSmartPsiElementPointerCached(project: Project) =
-        cachedSmartPointer ?: usedProvider.getSmartPsiElementPointer(project)?.also { cachedSmartPointer = it }
+            cachedSmartPointer ?: usedProvider.getSmartPsiElementPointer(project)?.also { cachedSmartPointer = it }
 
     data class CachedNavigatable(val usedPsiElement: PsiElement, val navigatable: Navigatable)
 
     fun recalculate(project: Project) {
+        if (!isScheduledForRecalculation) return
         isScheduledForRecalculation = false
         val usedNavigatable = cachedNavigatable
         val psiElement = getSmartPsiElementPointerCached(project)?.element

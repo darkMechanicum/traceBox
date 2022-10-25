@@ -88,6 +88,8 @@ class TraceBoxPanel(
         addSeparator()
         add(myCopyToClipboardAction)
         add(myAnalyzeTraceAction)
+        addSeparator()
+        add(SearchInWebAction(myTree))
     }
 
     private val myFilteredTraces = project.service<FilteredTraceEvents>()

@@ -33,6 +33,8 @@ interface GroupByCriteria {
     )
 }
 
+// Default grouping.
+
 object GroupByFirstLine : GroupByCriteria {
     override val priority: Int = 1
     override val actionText = "Group By First Line"

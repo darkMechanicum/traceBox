@@ -9,6 +9,7 @@ import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
@@ -54,7 +55,9 @@ class TraceBoxStateManager(
                 other = it.other ?: emptyMap(),
             )
         }
-        traceEventsQueue.forEach { navigation.scheduleCalculateNavigation(it) }
+        runBlocking {
+            traceEventsQueue.forEach { navigation.scheduleCalculateNavigation(it) }
+        }
         TraceBoxToolWindowFactory.reloadAll(project)
     }
 

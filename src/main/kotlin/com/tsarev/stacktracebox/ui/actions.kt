@@ -13,7 +13,7 @@ import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 object ClearTracesAction : AnAction(
     "Clear Traces",
     "Clears all captured traces",
-    AllIcons.Actions.Refresh
+    AllIcons.Actions.GC
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return

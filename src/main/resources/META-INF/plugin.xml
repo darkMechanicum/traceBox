@@ -1,6 +1,6 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin package="com.tsarev.stacktracebox">
-    <id>com.tsarev.stackTraceBox</id>
+    <id>com.tsarev.stacktracebox</id>
     <name>StackTraceBox</name>
     <vendor email="aleksandr.tsarev@jetbrains.com"
             url="https://www.jetbrains.com">JetBrains
@@ -19,6 +19,6 @@
 
     <extensionPoints>
         <extensionPoint interface="com.tsarev.stacktracebox.ui.GroupByCriteria"
-                        name="GroupByCriteria"/>
+                        name="groupbycriteria"/>
     </extensionPoints>
 </idea-plugin>

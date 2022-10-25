@@ -2,6 +2,7 @@ package com.tsarev.stacktracebox.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.ide.IdeBundle
+import com.intellij.ide.actions.SearchWebAction
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.ide.CopyPasteManager
@@ -41,6 +42,20 @@ class AnalyzeTraceAction(
                 IdeBundle.message("tab.title.stacktrace"),
                 text
             )
+        }
+    }
+}
+class SearchInWebAction(
+    private val myTree: Tree
+) : AnAction(
+    "Search with Google",
+    "Searches stack trace first line with Google",
+    null
+) {
+    override fun actionPerformed(e: AnActionEvent) {
+        val trace = myTree.selectedNode?.value
+        if (trace != null) {
+            SearchWebAction.search(trace.firstLine.text)
         }
     }
 }
