@@ -16,7 +16,7 @@ class AddGitInfo(
         project: Project
 ) : AddOther {
 
-    override val priority = 0
+    override val priority = 1
 
     private val vcsManager = ProjectLevelVcsManager.getInstance(project)
 

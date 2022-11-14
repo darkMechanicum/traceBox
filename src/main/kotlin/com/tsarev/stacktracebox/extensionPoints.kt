@@ -22,6 +22,6 @@ val ADD_OTHER_EP = ExtensionPointName.create<AddOther>("com.tsarev.stacktracebox
 
 interface AddOther {
     val priority: Int
-    fun other(trace: VisibleTraceEvent): Map<String, String>?
-    fun addTextPart(trace: VisibleTraceEvent): List<Pair<String, SimpleTextAttributes>>?
+    fun other(trace: VisibleTraceEvent): Map<String, String>? = null
+    fun addTextPart(trace: VisibleTraceEvent): List<Pair<String, SimpleTextAttributes>>? = null
 }

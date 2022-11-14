@@ -36,7 +36,7 @@ class TraceBoxToolWindowFactory : ToolWindowFactory {
 
     override fun init(toolWindow: ToolWindow) {
         toolWindow.title = toolWindowTitle
-        toolWindow.stripeTitle = "$toolWindowTitle: "
+        toolWindow.stripeTitle = toolWindowTitle
     }
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
