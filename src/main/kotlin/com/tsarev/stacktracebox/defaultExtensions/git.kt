@@ -11,6 +11,7 @@ import com.tsarev.stacktracebox.GroupByCriteria
 import com.tsarev.stacktracebox.VisibleTraceEvent
 
 
+val VisibleTraceEvent.gitRevision get() = other[gitRevisionProp]
 const val gitRevisionProp = "com.tsarev.stacktracebox.gitRevision"
 
 @Service
@@ -38,7 +39,7 @@ class AddGitInfo(
     }
 
     override fun addTextPart(trace: VisibleTraceEvent): List<Pair<String, SimpleTextAttributes>>? {
-        val gitRevision = trace.other[gitRevisionProp]
+        val gitRevision = trace.gitRevision
         return if (gitRevision != null) {
             listOf(
                     "git: " to SimpleTextAttributes.GRAYED_ITALIC_ATTRIBUTES,
@@ -54,6 +55,6 @@ class GroupByGitInfo : GroupByCriteria {
     override val actionDesc = "Perform grouping based on git revision"
     override val actionIcon = AllIcons.Vcs.Branch
     override fun group(traces: Collection<VisibleTraceEvent>) =
-            traces.groupBy { it.other[gitRevisionProp] ?: "no revision" }
+            traces.groupBy { it.gitRevision ?: "no revision" }
 
 }
