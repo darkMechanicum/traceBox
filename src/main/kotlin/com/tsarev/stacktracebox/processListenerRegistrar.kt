@@ -53,7 +53,6 @@ class ProcessListenersRegistrar(
                         val listener = LogProcessListener(runDesc, ph, currentCoroutineContext().job) {
                             managedProcesses.remove(ph)
                         }
-                        println("NEW LISTENER FOR PROCESS! ${runDesc.displayName}")
                         ph.addProcessListener(listener, this@ProcessListenersRegistrar)
                         emit(listener)
                     }

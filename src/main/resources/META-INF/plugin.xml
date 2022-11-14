@@ -19,7 +19,11 @@
     </extensions>
 
     <extensions defaultExtensionNs="com.tsarev.stacktracebox">
+        <!-- git /-->
         <addother implementation="com.tsarev.stacktracebox.defaultExtensions.AddGitInfo"/>
+        <groupbycriteria implementation="com.tsarev.stacktracebox.defaultExtensions.GroupByGitInfo"/>
+
+        <!-- process name /-->
         <addother implementation="com.tsarev.stacktracebox.defaultExtensions.AddProcessName"/>
     </extensions>
 
