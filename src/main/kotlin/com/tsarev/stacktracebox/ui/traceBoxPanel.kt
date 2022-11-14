@@ -64,9 +64,14 @@ class TraceBoxPanel(
             .map { it.criteria }
             .sortedBy { it.priority }
 
+    private val myTree = Tree()
+
     private val myToolbarActionGroup = DefaultActionGroup().apply {
         add(ClearTracesAction)
         add(myAutoScrollToSource.createToggleAction())
+        addSeparator()
+        add(ExpandAll(myTree))
+        add(CollapseAll(myTree))
         addSeparator()
         addAll(groupingActions)
     }
@@ -76,8 +81,6 @@ class TraceBoxPanel(
         myToolbarActionGroup,
         false
     )
-
-    private val myTree = Tree()
 
     private val myCopyToClipboardAction = CopyTraceToClipboardAction(myTree)
 

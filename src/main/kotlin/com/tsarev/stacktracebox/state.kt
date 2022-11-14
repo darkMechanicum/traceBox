@@ -1,11 +1,10 @@
 package com.tsarev.stacktracebox
 
-import com.intellij.openapi.components.PersistentStateComponent
-import com.intellij.openapi.components.Service
-import com.intellij.openapi.components.State
-import com.intellij.openapi.components.Storage
-import com.intellij.openapi.components.service
+import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
+import com.intellij.util.xmlb.annotations.Attribute
+import com.intellij.util.xmlb.annotations.XCollection
+import com.intellij.util.xmlb.annotations.XMap
 import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -74,14 +73,20 @@ class TraceBoxStateManager(
     }
 
     class State {
+        @XCollection
         var storedExceptions: List<TraceTraceBoxEventStateAdapter>? = null
     }
 
     class TraceTraceBoxEventStateAdapter {
+        @Attribute
         var firstLine: String? = null
+        @XCollection
         var otherLines: List<String>? = null
+        @Attribute
         var type: String? = null
+        @Attribute
         var time: Long? = null
+        @XMap
         var other: Map<String, String>? = null
     }
 }

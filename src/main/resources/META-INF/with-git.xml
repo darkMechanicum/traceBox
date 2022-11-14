@@ -1,0 +1,8 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin package="com.tsarev.stacktracebox">
+    <extensions defaultExtensionNs="com.tsarev.stacktracebox">
+        <!-- git /-->
+        <addother implementation="com.tsarev.stacktracebox.defaultExtensions.AddGitInfo"/>
+        <groupbycriteria implementation="com.tsarev.stacktracebox.defaultExtensions.GroupByGitInfo"/>
+    </extensions>
+</idea-plugin>

@@ -23,9 +23,11 @@ class AddGitInfo(
 
     private val vcsManager = ProjectLevelVcsManager.getInstance(project)
 
-    private val firstGitVcsRoot = vcsManager
-            .allVcsRoots
-            .firstOrNull { it.vcs?.name == "Git" }
+    private val firstGitVcsRoot by lazy {
+        vcsManager
+                .allVcsRoots
+                .firstOrNull { it.vcs?.name == "Git" }
+    }
 
     override fun other(trace: VisibleTraceEvent): Map<String, String>? {
         val gitVcsRoot_ = firstGitVcsRoot
