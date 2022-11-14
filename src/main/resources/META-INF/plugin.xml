@@ -3,7 +3,8 @@
     <id>com.tsarev.stacktracebox</id>
     <name>StackTraceBox</name>
     <vendor email="aleksandr.tsarev@jetbrains.com"
-            url="https://www.jetbrains.com">JetBrains
+            url="https://www.jetbrains.com">
+        JetBrains
     </vendor>
     <description>
         A small plugin to view captured java stack traces from launched run configurations.
@@ -19,6 +20,8 @@
 
     <extensionPoints>
         <extensionPoint interface="com.tsarev.stacktracebox.ui.GroupByCriteria"
-                        name="groupbycriteria"/>
+                        name="groupbycriteria"
+                        area="IDEA_PROJECT"
+        />
     </extensionPoints>
 </idea-plugin>

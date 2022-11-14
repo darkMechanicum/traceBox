@@ -3,6 +3,7 @@ package com.tsarev.stacktracebox
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
+import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.tsarev.stacktracebox.ui.TraceBoxToolWindowFactory
@@ -16,6 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Service to persist captured traces.
  */
 @Service
+@Storage("traceBox.xml")
 @State(name = "com.tsarev.tracebox.traces")
 class TraceBoxStateManager(
     private val project: Project
@@ -46,15 +48,19 @@ class TraceBoxStateManager(
 
     override fun loadState(state: State) {
         traceEventsQueue.clear()
-        state.storedExceptions?.mapTo(traceEventsQueue) {
-            TraceTraceBoxEvent(
-                firstLine = FirstTraceLine.parse(it.firstLine!!),
-                otherLines = it.otherLines?.map { TraceLine.parse(it) } ?: emptyList(),
-                type = it.type!!,
-                time = it.time!!,
-                other = it.other ?: emptyMap(),
-            )
-        }
+        state.storedExceptions?.mapNotNull {
+            val firstLine = FirstTraceLine.parseOrNull(it.firstLine!!)
+            if (firstLine != null) {
+                TraceTraceBoxEvent(
+                        firstLine = firstLine,
+                        otherLines = it.otherLines?.map { TraceLine.parse(it) } ?: emptyList(),
+                        type = it.type!!,
+                        time = it.time!!,
+                ).apply {
+                    it.other?.forEach { (key, value) -> this[key] = value }
+                }
+            } else null
+        }?.mapTo(traceEventsQueue) { it }
         runBlocking {
             traceEventsQueue.forEach { navigation.scheduleCalculateNavigation(it) }
         }

@@ -26,11 +26,10 @@ sealed class BaseTraceNode(
  * Dummy event to create nodes without event.
  */
 val dummy = TraceTraceBoxEvent(
-    FirstTraceLine.parse("Exception"),
+    FirstTraceLine.parse("dummy.Exception"),
     emptyList(),
     "dummy",
     0,
-    emptyMap()
 )
 
 /**

@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.shareIn
 import java.util.concurrent.ConcurrentHashMap
 
 
-private const val lookFrequency = 500L
+private const val lookFrequency = 50L
 
 private const val listenersReplay = 10
 
@@ -53,15 +53,17 @@ class ProcessListenersRegistrar(
                         val listener = LogProcessListener(runDesc, ph, currentCoroutineContext().job) {
                             managedProcesses.remove(ph)
                         }
+                        println("NEW LISTENER FOR PROCESS! ${runDesc.displayName}")
                         ph.addProcessListener(listener, this@ProcessListenersRegistrar)
-                        emit(listener.listenerFlow)
+                        emit(listener)
                     }
                 }
             delay(lookFrequency)
         }
     }.shareIn(myScope, SharingStarted.Eagerly, listenersReplay)
 
-    val emptyProcessHandlers = arrayOf<ProcessHandlerEx>()
+    private val emptyProcessHandlers = arrayOf<ProcessHandlerEx>()
+
     private fun getRunningProcesses(): Array<ProcessHandlerEx> {
         var handlers: MutableList<ProcessHandlerEx>? = null
         for (descriptor in ExecutionManagerImpl.getAllDescriptors(project)) {
@@ -94,18 +96,20 @@ class LogProcessListener(
     private val onTerminate: () -> Unit,
 ) : ProcessAdapter() {
 
-    private val eventsFlow: MutableSharedFlow<TraceBoxEvent> = MutableSharedFlow(replay = eventsReplay)
+    val processName get() = runContentDescriptor.displayName
+
+    private val myEventsFlow: MutableSharedFlow<TraceBoxEvent> = MutableSharedFlow(replay = eventsReplay)
 
     private val listenerScope = CoroutineScope(Job(parentJob))
 
     // This flow must be shared - since process listening can be independent of
     // its output processing.
-    val listenerFlow = eventsFlow
+    val eventsFlow = myEventsFlow
         .shareIn(listenerScope, SharingStarted.Eagerly)
 
     init {
         runBlocking {
-            eventsFlow.emit(ProcessStartTraceBoxEvent)
+            myEventsFlow.emit(ProcessStartTraceBoxEvent)
         }
     }
 
@@ -114,14 +118,14 @@ class LogProcessListener(
         val textEvent = TextTraceBoxEvent(
             trimmedText,
             outputType.toString().intern(),
-            runContentDescriptor.displayName
         )
-        eventsFlow.emit(textEvent)
+        myEventsFlow.emit(textEvent)
+        println("NEW TEXT! $trimmedText")
     }.run { }
 
     override fun processTerminated(event: ProcessEvent) = runBlocking {
         ph.removeProcessListener(this@LogProcessListener)
-        eventsFlow.emit(ProcessEndTraceBoxEvent)
+        myEventsFlow.emit(ProcessEndTraceBoxEvent)
         listenerScope.cancel()
         onTerminate()
     }

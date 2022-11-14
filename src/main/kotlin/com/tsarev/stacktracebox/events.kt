@@ -16,23 +16,26 @@ sealed class TraceBoxEvent
  * Some text that is captured from process listener.
  */
 data class TextTraceBoxEvent(
-    val text: String,
-    val type: String,
-    val processName: String,
+        val text: String,
+        val type: String,
 ) : TraceBoxEvent()
 
 /**
  * Captured trace event.
  */
-data class TraceTraceBoxEvent(
-    val firstLine: FirstTraceLine,
-    val otherLines: List<TraceLine>,
-    val type: String,
-    val time: Long,
-    val other: Map<String, String>,
+class TraceTraceBoxEvent(
+        val firstLine: FirstTraceLine,
+        val otherLines: List<TraceLine>,
+        val type: String,
+        val time: Long,
 ) : TraceBoxEvent() {
+
+    private val myOther = mutableMapOf<String, String>()
+    val other get(): Map<String, String> = myOther
     val text by lazy { "${firstLine.text}\n${otherLines.joinToString(separator = "\n") { it.text }}" }
     val allLines get() = otherLines + firstLine
+    operator fun set(key: String, value: String) = myOther.set(key, value)
+    fun addOther(key: String, value: String) = this.apply { myOther[key] = value }
 }
 
 /**
@@ -50,7 +53,7 @@ object ProcessEndTraceBoxEvent : TraceBoxEvent()
  * about its navigation.
  */
 sealed class TraceLine(
-    val text: String,
+        val text: String,
 ) : NavigationDataProvider, NavigationAware {
 
     val navigationData: NavigationLineCache = NavigationLineCache(this)
@@ -59,24 +62,24 @@ sealed class TraceLine(
 
     companion object {
         fun parseOrNull(text: String) =
-            FirstTraceLine.parseOrNull(text)
-                ?: CausedByTraceLine.parseOrNull(text)
-                ?: AtTraceLine.parseOrNull(text)
+                FirstTraceLine.parseOrNull(text)
+                        ?: CausedByTraceLine.parseOrNull(text)
+                        ?: AtTraceLine.parseOrNull(text)
 
         fun parseNonFirstLineOrNull(text: String) =
-            CausedByTraceLine.parseOrNull(text)
-                ?: AtTraceLine.parseOrNull(text)
+                CausedByTraceLine.parseOrNull(text)
+                        ?: AtTraceLine.parseOrNull(text)
 
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match one of trace patterns: $text")
     }
 }
 
 class FirstTraceLine private constructor(
-    text: String,
-    match: MatchResult
+        text: String,
+        match: MatchResult
 ) : TraceLine(text) {
     companion object {
-        private val regex = "\\s*([^:]*(Exception|Throwable)[^:]*)(:.*)?".toRegex()
+        private val regex = "(([^ .]+\\.)+[^ :]*(Exception|Throwable)[^:]*)(:.*)?".toRegex()
         fun parseOrNull(text: String) = regex.find(text.trim())?.let { FirstTraceLine(text, it) }
         fun parse(text: String) = parseOrNull(text) ?: error("Trace line must match first trace pattern: $text")
     }
@@ -88,21 +91,21 @@ class FirstTraceLine private constructor(
     init {
         exception = match.groupValues[1]
         exceptionText =
-            (if (match.groupValues.size >= 4) match.groupValues[3].removePrefix(":").trim() else null)
-                ?.takeIf { it.isNotBlank() }
+                (if (match.groupValues.size >= 4) match.groupValues[4].removePrefix(":").trim() else null)
+                        ?.takeIf { it.isNotBlank() }
     }
 
     override fun getSmartPsiElementPointer(project: Project) =
-        project.tryFindPsiElementFor(exception)?.createSmartPointer(project)
+            project.tryFindPsiElementFor(exception)?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
-        .getInstance()
-        .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
+            .getInstance()
+            .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
 }
 
 class CausedByTraceLine private constructor(
-    text: String,
-    match: MatchResult
+        text: String,
+        match: MatchResult
 ) : TraceLine(text) {
     companion object {
         private val regex = "\\s*Caused\\sby:\\s([^:]+)(:.+)?".toRegex()
@@ -119,17 +122,17 @@ class CausedByTraceLine private constructor(
     }
 
     override fun getSmartPsiElementPointer(project: Project) = project
-        .tryFindPsiElementFor(causeException)
-        ?.createSmartPointer(project)
+            .tryFindPsiElementFor(causeException)
+            ?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
-        .getInstance()
-        .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
+            .getInstance()
+            .createNavigatable(project, psiElement.containingFile.virtualFile, psiElement.textOffset)
 }
 
 class AtTraceLine private constructor(
-    text: String,
-    match: MatchResult
+        text: String,
+        match: MatchResult
 ) : TraceLine(text) {
     companion object {
         private val regex = "[\\t\\s]*at\\s([^(]+)(\\(([^)]+)(:\\d+)\\)?)?".toRegex()
@@ -156,16 +159,16 @@ class AtTraceLine private constructor(
     }
 
     override fun getSmartPsiElementPointer(project: Project) = project
-        .tryFindPsiElementFor(fqn)
-        ?.createSmartPointer(project)
+            .tryFindPsiElementFor(fqn)
+            ?.createSmartPointer(project)
 
     override fun getNavigatable(project: Project, psiElement: PsiElement) = PsiNavigationSupport
-        .getInstance()
-        .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))
+            .getInstance()
+            .createNavigatable(project, psiElement.containingFile.virtualFile, getOffset(project, psiElement))
 
     private fun getOffset(project: Project, psiElement: PsiElement) = position?.let {
         val document = PsiDocumentManager.getInstance(project)
-            .getDocument(psiElement.containingFile)
+                .getDocument(psiElement.containingFile)
         val lineCount = document?.lineCount ?: 0
         if (it - 1 > lineCount) 0 else document?.getLineStartOffset(it - 1)
     } ?: 0
@@ -174,7 +177,7 @@ class AtTraceLine private constructor(
 fun Project.tryFindPsiElementFor(fqn: String): PsiElement? {
     val psiManager = PsiManager.getInstance(this)
     val findPsiClass = ClassUtil.findPsiClass(
-        psiManager, fqn, null, false, GlobalSearchScope.everythingScope(this)
+            psiManager, fqn, null, false, GlobalSearchScope.everythingScope(this)
     )
     return findPsiClass?.navigationElement
 }

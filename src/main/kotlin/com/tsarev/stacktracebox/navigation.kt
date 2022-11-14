@@ -33,6 +33,8 @@ class NavigationCalculationService(
 
     private val application = ApplicationManager.getApplication()
 
+    private val dumbService = DumbService.getInstance(project)
+
     @Volatile
     private var indexAvailableDeferred: AtomicReference<CompletableDeferred<Unit>?> = AtomicReference(CompletableDeferred())
 
@@ -70,7 +72,7 @@ class NavigationCalculationService(
             needToCalculateNavigation.collect {
                 try {
                     indexAvailableDeferred.get()?.await()
-                    application.runReadAction {
+                    dumbService.runReadActionInSmartMode {
                         it.recalculate(project)
                         runBlocking {
                             myRecalculatedFlow.emit(Unit)
