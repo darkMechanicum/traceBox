@@ -120,7 +120,6 @@ class LogProcessListener(
             outputType.toString().intern(),
         )
         myEventsFlow.emit(textEvent)
-        println("NEW TEXT! $trimmedText")
     }.run { }
 
     override fun processTerminated(event: ProcessEvent) = runBlocking {

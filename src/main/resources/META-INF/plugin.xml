@@ -18,9 +18,17 @@
         />
     </extensions>
 
+    <extensions defaultExtensionNs="com.tsarev.stacktracebox">
+        <addother implementation="com.tsarev.stacktracebox.defaultExtensions.AddGitInfo"/>
+    </extensions>
+
     <extensionPoints>
-        <extensionPoint interface="com.tsarev.stacktracebox.ui.GroupByCriteria"
+        <extensionPoint interface="com.tsarev.stacktracebox.GroupByCriteria"
                         name="groupbycriteria"
+                        area="IDEA_PROJECT"
+        />
+        <extensionPoint interface="com.tsarev.stacktracebox.AddOther"
+                        name="addother"
                         area="IDEA_PROJECT"
         />
     </extensionPoints>

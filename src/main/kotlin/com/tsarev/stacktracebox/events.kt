@@ -21,21 +21,33 @@ data class TextTraceBoxEvent(
 ) : TraceBoxEvent()
 
 /**
+ * Part of trace event that is visible to extension point users.
+ */
+interface VisibleTraceEvent {
+    val firstLine: FirstTraceLine
+    val otherLines: List<TraceLine>
+    val type: String
+    val time: Long
+    val other: Map<String, String>
+}
+
+/**
  * Captured trace event.
  */
 class TraceTraceBoxEvent(
-        val firstLine: FirstTraceLine,
-        val otherLines: List<TraceLine>,
-        val type: String,
-        val time: Long,
-) : TraceBoxEvent() {
+        override val firstLine: FirstTraceLine,
+        override val otherLines: List<TraceLine>,
+        override val type: String,
+        override val time: Long,
+) : TraceBoxEvent(), VisibleTraceEvent {
 
     private val myOther = mutableMapOf<String, String>()
-    val other get(): Map<String, String> = myOther
+    override val other get(): Map<String, String> = myOther
     val text by lazy { "${firstLine.text}\n${otherLines.joinToString(separator = "\n") { it.text }}" }
     val allLines get() = otherLines + firstLine
     operator fun set(key: String, value: String) = myOther.set(key, value)
-    fun addOther(key: String, value: String) = this.apply { myOther[key] = value }
+    fun addOther(other: Map<String, String>) = this.apply { myOther.putAll(other) }
+    fun addOther(key: String, value: String) = this.apply { myOther.put(key, value) }
 }
 
 /**

@@ -4,6 +4,8 @@ import com.intellij.ide.projectView.TreeStructureProvider
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.ide.util.treeView.AbstractTreeStructureBase
 import com.intellij.openapi.project.Project
+import com.tsarev.stacktracebox.ADD_OTHER_EP
+import com.tsarev.stacktracebox.GroupByCriteria
 import com.tsarev.stacktracebox.TraceBoxStateManager
 import com.tsarev.stacktracebox.TraceTraceBoxEvent
 
@@ -22,6 +24,9 @@ class CollectTracesTreeStructure(
     override fun hasSomethingToCommit() = false
     override fun getProviders() = mutableListOf<TreeStructureProvider>()
 
+    private val otherProviders = ADD_OTHER_EP.getExtensions(project)
+            .sortedBy { it.priority }
+
     @Suppress("SENSELESS_COMPARISON")
     override fun getChildElements(element: Any): Array<out BaseTraceNode> {
         return if (element == null || element === rootNode) {
@@ -38,14 +43,17 @@ class CollectTracesTreeStructure(
         groupByCriterias: List<GroupByCriteria>
     ): MutableCollection<BaseTraceNode> {
         val firstCriteria = groupByCriterias.firstOrNull()
-            ?: return traces.mapTo(mutableListOf()) { WholeTraceNode(project, it) }
+            ?: return traces.mapTo(mutableListOf()) {
+                val other = otherProviders.mapNotNull { provider -> provider.addTextPart(it) }
+                WholeTraceNode(project, it, other)
+            }
         val otherCriterias = groupByCriterias.drop(1)
         val grouped = firstCriteria.group(traces).entries
         return grouped.mapTo(mutableListOf()) {
             GroupByNode(
                 project,
                 it.key,
-                tryGroup(it.value, otherCriterias)
+                tryGroup(it.value.map { it as TraceTraceBoxEvent }, otherCriterias)
             )
         }
     }

@@ -11,8 +11,8 @@ import com.tsarev.stacktracebox.*
  * Base tree node, that contains [TraceTraceBoxEvent] event.
  */
 sealed class BaseTraceNode(
-    project: Project,
-    value: TraceTraceBoxEvent
+        project: Project,
+        value: TraceTraceBoxEvent
 ) : AbstractTreeNode<TraceTraceBoxEvent>(project, value) {
 
     open val managedLine: TraceLine? get() = null
@@ -26,10 +26,10 @@ sealed class BaseTraceNode(
  * Dummy event to create nodes without event.
  */
 val dummy = TraceTraceBoxEvent(
-    FirstTraceLine.parse("dummy.Exception"),
-    emptyList(),
-    "dummy",
-    0,
+        FirstTraceLine.parse("dummy.Exception"),
+        emptyList(),
+        "dummy",
+        0,
 )
 
 /**
@@ -45,9 +45,9 @@ class RootTraceNode(project: Project) : BaseTraceNode(project, dummy) {
  * Dummy root trace node.
  */
 class GroupByNode(
-    project: Project,
-    val title: String,
-    val myChildren: MutableCollection<BaseTraceNode>
+        project: Project,
+        val title: String,
+        val myChildren: MutableCollection<BaseTraceNode>
 ) : BaseTraceNode(project, dummy) {
     override fun getChildren() = myChildren
     override fun update(presentation: PresentationData) {
@@ -58,14 +58,38 @@ class GroupByNode(
     override fun hashCode() = title.hashCode()
 }
 
+class DelimiterNode(
+        project: Project,
+        traceEvent: TraceTraceBoxEvent,
+) : BaseTraceNode(project, traceEvent) {
+    override fun update(presentation: PresentationData) = with(presentation) {
+        addText("────", SimpleTextAttributes.GRAY_ATTRIBUTES)
+    }
+}
+
+/**
+ * Tree node that represents other information sored with the trace.
+ */
+class OtherNode(
+        project: Project,
+        traceEvent: TraceTraceBoxEvent,
+        private val text: List<Pair<String, SimpleTextAttributes>>,
+) : BaseTraceNode(project, traceEvent) {
+    override fun update(presentation: PresentationData) = with(presentation) {
+        text.forEach {
+            addText(it.first, it.second)
+        }
+    }
+}
+
 /**
  * Node, that represent single trace element.
  * It can be "Caused by" element, or just trace line.
  */
 class TraceLineNode(
-    project: Project,
-    value: TraceTraceBoxEvent,
-    val traceLineIndex: Int
+        project: Project,
+        value: TraceTraceBoxEvent,
+        val traceLineIndex: Int
 ) : BaseTraceNode(project, value) {
 
     override val managedLine get() = value.otherLines[traceLineIndex]
@@ -99,11 +123,11 @@ class TraceLineNode(
 
     // Equals and hasCode override is added to workaround [AsyncTreeModel] duplicates removal.
     override fun equals(other: Any?) =
-        this === other ||
-                javaClass == other?.javaClass &&
-                super.equals(other) &&
-                other is TraceLineNode &&
-                traceLineIndex == other.traceLineIndex
+            this === other ||
+                    javaClass == other?.javaClass &&
+                    super.equals(other) &&
+                    other is TraceLineNode &&
+                    traceLineIndex == other.traceLineIndex
 
     override fun hashCode() = 31 * super.hashCode() + traceLineIndex
 }
@@ -112,15 +136,23 @@ class TraceLineNode(
  * Tree node that represents whole stack trace.
  */
 class WholeTraceNode(
-    project: Project,
-    value: TraceTraceBoxEvent,
+        project: Project,
+        value: TraceTraceBoxEvent,
+        private val other: List<List<Pair<String, SimpleTextAttributes>>>,
 ) : BaseTraceNode(project, value) {
 
     override val managedLine get() = value.firstLine
 
-    override fun getChildren(): MutableCollection<TraceLineNode> =
-        List(value.otherLines.size) { index -> TraceLineNode(project!!, value, index) }
-            .toMutableList()
+    override fun getChildren(): MutableCollection<out BaseTraceNode> {
+        val result = mutableListOf<BaseTraceNode>()
+        value.otherLines.mapIndexedTo(result) { index, _ -> TraceLineNode(project!!, value, index) }
+        if (other.isNotEmpty()) {
+            result.add(DelimiterNode(project!!, value))
+            other.mapTo(result) { OtherNode(project!!, value, it) }
+        }
+        return result
+    }
+
 
     override fun update(presentation: PresentationData) = with(presentation) {
         addText("[${value.time}] ", SimpleTextAttributes.GRAY_ATTRIBUTES)

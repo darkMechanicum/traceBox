@@ -18,6 +18,16 @@ class FilteredTraceEvents(
 
     private val listenersRegistrar = project.service<ProcessListenersRegistrar>()
 
+    private val otherProviders = ADD_OTHER_EP.getExtensions(project)
+            .sortedBy { it.priority }
+
+    private fun TraceTraceBoxEvent.otherFromEP() = this.apply {
+        otherProviders.forEach {
+            val provided = it.other(this)
+            if (provided != null) addOther(provided)
+        }
+    }
+
     @Suppress("RemoveExplicitTypeArguments")
     val traceFlow = channelFlow<TraceTraceBoxEvent> {
         listenersRegistrar.listenersFlow.collect { listener ->
@@ -31,6 +41,7 @@ class FilteredTraceEvents(
                                 is ProcessEndTraceBoxEvent -> this@collectingProcessLogs.cancel()
                                 is TraceTraceBoxEvent -> send(
                                         it.addOther(runDescriptorNameProp, listener.processName)
+                                                .otherFromEP()
                                 )
                             }
                         }
