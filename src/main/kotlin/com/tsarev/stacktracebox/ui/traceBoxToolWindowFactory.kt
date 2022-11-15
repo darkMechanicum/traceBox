@@ -1,12 +1,13 @@
 package com.tsarev.stacktracebox.ui
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.content.impl.ContentImpl
+import com.intellij.util.concurrency.AppExecutorUtil
 
 
 /**
@@ -22,15 +23,16 @@ class TraceBoxToolWindowFactory : ToolWindowFactory {
 
         fun reloadAll(project: Project) {
             val affectedPanels = ToolWindowManager.getInstance(project)
-                .getToolWindow(toolWindowId)
-                ?.contentManager
-                ?.contents
-                ?.map { it.component }
-                ?.filterIsInstance<TraceBoxPanel>()
+                    .getToolWindow(toolWindowId)
+                    ?.contentManager
+                    ?.contents
+                    ?.map { it.component }
+                    ?.filterIsInstance<TraceBoxPanel>()
 
-            DumbService.getInstance(project).smartInvokeLater {
-                affectedPanels?.forEach { it.reloadTraces() }
-            }
+            ReadAction
+                    .nonBlocking { affectedPanels?.forEach { it.reloadTraces() } }
+                    .inSmartMode(project)
+                    .submit(AppExecutorUtil.getAppExecutorService())
         }
     }
 

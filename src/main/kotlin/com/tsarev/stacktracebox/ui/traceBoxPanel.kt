@@ -6,8 +6,8 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.service
-import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
@@ -17,6 +17,7 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.tsarev.stacktracebox.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
@@ -132,9 +133,10 @@ class TraceBoxPanel(
      * Invalidate tree and reload traces from [myStateManager].
      */
     fun reloadTraces() {
-        DumbService.getInstance(project).smartInvokeLater {
-            myStructureTreeModel.invalidate()
-        }
+        ReadAction
+                .nonBlocking { myStructureTreeModel.invalidate() }
+                .inSmartMode(project)
+                .submit(AppExecutorUtil.getAppExecutorService())
     }
 
     override fun getData(dataId: String) = when {
