@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VirtualFile
@@ -131,7 +132,7 @@ class TraceBoxPanel(
      * Invalidate tree and reload traces from [myStateManager].
      */
     fun reloadTraces() {
-        application.invokeLater {
+        DumbService.getInstance(project).smartInvokeLater {
             myStructureTreeModel.invalidate()
         }
     }

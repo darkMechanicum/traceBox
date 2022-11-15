@@ -1,7 +1,7 @@
 package com.tsarev.stacktracebox.ui
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -28,7 +28,7 @@ class TraceBoxToolWindowFactory : ToolWindowFactory {
                 ?.map { it.component }
                 ?.filterIsInstance<TraceBoxPanel>()
 
-            ApplicationManager.getApplication().invokeLater {
+            DumbService.getInstance(project).smartInvokeLater {
                 affectedPanels?.forEach { it.reloadTraces() }
             }
         }
